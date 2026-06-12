@@ -371,6 +371,25 @@ async function importMembers(request, env) {
       meeting_4 = excluded.meeting_4,
       meeting_5 = excluded.meeting_5,
       updated_at = CURRENT_TIMESTAMP
+    ON CONFLICT(email) DO UPDATE SET
+      member_no = excluded.member_no,
+      committee_type = excluded.committee_type,
+      name = excluded.name,
+      kana = excluded.kana,
+      line_name = excluded.line_name,
+      student_id = excluded.student_id,
+      grade = excluded.grade,
+      faculty = excluded.faculty,
+      department = excluded.department,
+      position = excluded.position,
+      team = excluded.team,
+      meeting_welcome = excluded.meeting_welcome,
+      meeting_1 = excluded.meeting_1,
+      meeting_2 = excluded.meeting_2,
+      meeting_3 = excluded.meeting_3,
+      meeting_4 = excluded.meeting_4,
+      meeting_5 = excluded.meeting_5,
+      updated_at = CURRENT_TIMESTAMP
   `).bind(
     member.memberNo,
     member.committeeType,
