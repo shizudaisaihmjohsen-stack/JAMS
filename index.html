@@ -8,24 +8,28 @@
   </head>
   <body>
     <header class="app-header">
-      <div>
-        <p class="eyebrow">JAMS / S-GATE</p>
-        <h1>情報宣伝部 部員認証・管理システム</h1>
+      <div class="brand-block">
+        <img class="brand-logo" src="assets/hm-logo.png" alt="浜松静大祭実行委員会">
+        <div>
+          <p class="eyebrow">浜松静大祭実行委員会</p>
+          <h1>情報宣伝部 部員管理システム</h1>
+        </div>
       </div>
-      <div class="header-actions">
-        <a id="discordLoginLink" class="button-link" href="#" aria-disabled="true">Discordで認証</a>
-        <button id="loadSampleButton" type="button">サンプル投入</button>
-        <button id="loadMembersButton" type="button" disabled>DB読込</button>
-        <button id="saveMembersButton" type="button" disabled>DB保存</button>
-        <button id="exportButton" type="button">CSV出力</button>
-      </div>
+      <nav class="header-actions" aria-label="管理操作">
+        <a id="discordLoginLink" class="nav-action primary" href="#" aria-disabled="true"><span>AUTH</span>認証</a>
+        <button id="loadMembersButton" class="nav-action" type="button" disabled><span>DATA</span>読込</button>
+        <button id="saveMembersButton" class="nav-action" type="button" disabled><span>SAVE</span>保存</button>
+        <button id="exportButton" class="nav-action" type="button"><span>CSV</span>出力</button>
+        <button id="loadSampleButton" class="nav-action subtle" type="button"><span>DEMO</span>サンプル</button>
+      </nav>
     </header>
 
     <main class="layout">
-      <section class="panel import-panel" aria-labelledby="import-title">
+      <section class="panel import-panel feature-panel" aria-labelledby="import-title">
         <div class="section-heading">
           <div>
-            <h2 id="import-title">部員名簿インポート</h2>
+            <p class="panel-kicker">DATA IMPORT</p>
+            <h2 id="import-title">部員名簿を読み込む</h2>
             <p>CSVを読み込むと、学籍番号から学部・学科・学年を補完し、RC/SV/JC別に部員No.を採番します。</p>
             <p id="adminStatusText">S-GATE管理者状態を確認していません。</p>
           </div>
@@ -66,6 +70,7 @@
       <section class="panel" aria-labelledby="members-title">
         <div class="table-toolbar">
           <div>
+            <p class="panel-kicker">MEMBERS</p>
             <h2 id="members-title">部員一覧</h2>
             <p id="statusText">CSVを読み込んでください。</p>
           </div>

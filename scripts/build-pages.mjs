@@ -10,11 +10,14 @@ const publicFiles = [
 ];
 
 await mkdir("docs", { recursive: true });
+await mkdir("docs/assets", { recursive: true });
 
 for (const file of publicFiles) {
   await copyFile(file, `docs/${file}`);
 }
 
+await copyFile("assets/hm-logo.png", "docs/assets/hm-logo.png");
+
 await writeFile("docs/.nojekyll", "", "utf8");
 
-console.log(`Copied ${publicFiles.length} public files to docs/.`);
+console.log(`Copied ${publicFiles.length} public files and assets to docs/.`);
