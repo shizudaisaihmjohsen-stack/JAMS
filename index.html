@@ -8,20 +8,24 @@
   </head>
   <body>
     <header class="app-header">
-      <div class="brand-block">
-        <img class="brand-logo" src="assets/hm-logo.png" alt="浜松静大祭実行委員会">
-        <div>
-          <p class="eyebrow">浜松静大祭実行委員会</p>
-          <h1>情報宣伝部 部員管理システム</h1>
+      <div class="app-header-inner">
+        <div class="brand-block">
+          <span class="brand-mark">
+            <img class="brand-logo" src="assets/hm-logo.png" alt="浜松静大祭実行委員会">
+          </span>
+          <div>
+            <p class="eyebrow">浜松静大祭実行委員会</p>
+            <h1>情報宣伝部 部員管理システム</h1>
+          </div>
         </div>
+        <nav class="header-actions" aria-label="管理操作">
+          <a id="discordLoginLink" class="nav-action primary" href="#" aria-disabled="true"><span>AUTH</span>認証</a>
+          <button id="loadMembersButton" class="nav-action" type="button" disabled><span>DATA</span>読込</button>
+          <button id="saveMembersButton" class="nav-action" type="button" disabled><span>SAVE</span>保存</button>
+          <button id="exportButton" class="nav-action" type="button"><span>CSV</span>出力</button>
+          <button id="loadSampleButton" class="nav-action subtle" type="button"><span>DEMO</span>サンプル</button>
+        </nav>
       </div>
-      <nav class="header-actions" aria-label="管理操作">
-        <a id="discordLoginLink" class="nav-action primary" href="#" aria-disabled="true"><span>AUTH</span>認証</a>
-        <button id="loadMembersButton" class="nav-action" type="button" disabled><span>DATA</span>読込</button>
-        <button id="saveMembersButton" class="nav-action" type="button" disabled><span>SAVE</span>保存</button>
-        <button id="exportButton" class="nav-action" type="button"><span>CSV</span>出力</button>
-        <button id="loadSampleButton" class="nav-action subtle" type="button"><span>DEMO</span>サンプル</button>
-      </nav>
     </header>
 
     <main class="layout">
