@@ -13,18 +13,18 @@
         <h1 id="resultTitle">認証結果を確認しています</h1>
         <p id="resultText">Discord認証の結果を読み込んでいます。</p>
         <form id="emailVerificationForm" class="verify-form" hidden>
-          <label>
+          <label id="emailField">
             <span>大学メールアドレス</span>
             <input id="universityEmailInput" type="email" autocomplete="email" required>
           </label>
-          <label>
+          <label id="studentIdField">
             <span>学籍番号</span>
             <input id="studentIdInput" type="text" inputmode="latin" maxlength="8" placeholder="525A1001">
           </label>
           <button id="sendCodeButton" type="button">認証コードを送信</button>
           <label>
             <span>認証コード</span>
-            <input id="verificationCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="123456" required>
+            <input id="verificationCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required>
           </label>
           <button type="submit">認証を完了</button>
           <p id="emailVerificationStatus" class="form-status"></p>
@@ -39,13 +39,14 @@
       const status = params.get("status");
       const mode = params.get("mode");
       const token = params.get("token");
+      const isTokenVerification = Boolean(token) || mode === "token";
       const messages = {
         login_ok: ["Discord認証が完了しました", "サーバー参加と未認証ロールの付与を試行しました。次に部員照合を行うと、認証済みロールへ切り替わります。"],
         state_error: ["認証を完了できませんでした", "安全確認用のstateが一致しませんでした。もう一度Discord認証を実行してください。"],
         discord_error: ["Discord認証がキャンセルされました", "Discord側で認証が完了しませんでした。"],
         error: ["認証処理でエラーが発生しました", "時間を置いて再度お試しください。"]
       };
-      const [title, text] = mode === "token"
+      const [title, text] = isTokenVerification
         ? ["認証コードを入力してください", "大学メールに届いた6桁の認証コードを入力すると、Discordロールを更新します。"]
         : (messages[status] ?? messages.error);
       document.querySelector("#resultTitle").textContent = title;
@@ -56,11 +57,17 @@
       const studentIdInput = document.querySelector("#studentIdInput");
       const codeInput = document.querySelector("#verificationCodeInput");
 
-      if (mode === "token" && token && sGateBaseUrl) {
+      if (isTokenVerification && token && sGateBaseUrl) {
         form.hidden = false;
-        emailInput.closest("label").hidden = true;
-        studentIdInput.closest("label").hidden = true;
+        document.querySelector("#emailField").hidden = true;
+        document.querySelector("#studentIdField").hidden = true;
+        emailInput.required = false;
+        emailInput.disabled = true;
+        studentIdInput.disabled = true;
         document.querySelector("#sendCodeButton").hidden = true;
+      } else if (isTokenVerification && !token) {
+        document.querySelector("#resultTitle").textContent = "認証リンクが正しくありません";
+        document.querySelector("#resultText").textContent = "Discordの /auth から表示されたリンクを開き直してください。";
       } else if (status === "login_ok" && sGateBaseUrl) {
         form.hidden = false;
       } else if (status === "login_ok") {
@@ -98,7 +105,7 @@
         event.preventDefault();
         statusText.textContent = "認証コードを確認しています。";
         try {
-          const data = mode === "token"
+          const data = isTokenVerification
             ? await postJson("/api/sgate/email/confirm-token", {
                 token,
                 code: codeInput.value,
