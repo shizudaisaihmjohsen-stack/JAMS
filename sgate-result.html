@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>S-GATE 認証結果 | JAMS</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="result-page">
+      <section class="panel result-panel">
+        <p class="eyebrow">S-GATE</p>
+        <h1 id="resultTitle">認証結果を確認しています</h1>
+        <p id="resultText">Discord認証の結果を読み込んでいます。</p>
+        <form id="emailVerificationForm" class="verify-form" hidden>
+          <label>
+            <span>大学メールアドレス</span>
+            <input id="universityEmailInput" type="email" autocomplete="email" required>
+          </label>
+          <label>
+            <span>学籍番号</span>
+            <input id="studentIdInput" type="text" inputmode="latin" maxlength="8" placeholder="525A1001">
+          </label>
+          <button id="sendCodeButton" type="button">認証コードを送信</button>
+          <label>
+            <span>認証コード</span>
+            <input id="verificationCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="123456" required>
+          </label>
+          <button type="submit">認証を完了</button>
+          <p id="emailVerificationStatus" class="form-status"></p>
+        </form>
+        <a class="button-link" href="index.html">JAMSに戻る</a>
+      </section>
+    </main>
+    <script src="config.js"></script>
+    <script>
+      const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl?.replace(/\/$/, "");
+      const params = new URLSearchParams(location.search);
+      const status = params.get("status");
+      const messages = {
+        login_ok: ["Discord認証が完了しました", "サーバー参加と未認証ロールの付与を試行しました。次に部員照合を行うと、認証済みロールへ切り替わります。"],
+        state_error: ["認証を完了できませんでした", "安全確認用のstateが一致しませんでした。もう一度Discord認証を実行してください。"],
+        discord_error: ["Discord認証がキャンセルされました", "Discord側で認証が完了しませんでした。"],
+        error: ["認証処理でエラーが発生しました", "時間を置いて再度お試しください。"]
+      };
+      const [title, text] = messages[status] ?? messages.error;
+      document.querySelector("#resultTitle").textContent = title;
+      document.querySelector("#resultText").textContent = text;
+      const form = document.querySelector("#emailVerificationForm");
+      const statusText = document.querySelector("#emailVerificationStatus");
+      const emailInput = document.querySelector("#universityEmailInput");
+      const studentIdInput = document.querySelector("#studentIdInput");
+      const codeInput = document.querySelector("#verificationCodeInput");
+
+      if (status === "login_ok" && sGateBaseUrl) {
+        form.hidden = false;
+      } else if (status === "login_ok") {
+        document.querySelector("#resultText").textContent = "Discord認証は完了しています。大学メール認証を使うには config.js に sGateBaseUrl を設定してください。";
+      }
+
+      async function postJson(path, payload) {
+        const response = await fetch(`${sGateBaseUrl}${path}`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || data.error || "request_failed");
+        }
+        return data;
+      }
+
+      document.querySelector("#sendCodeButton").addEventListener("click", async () => {
+        statusText.textContent = "認証コードを送信しています。";
+        try {
+          const data = await postJson("/api/sgate/email/start", {
+            email: emailInput.value,
+            studentId: studentIdInput.value,
+          });
+          statusText.textContent = data.message || "認証コードを送信しました。";
+        } catch (error) {
+          statusText.textContent = `送信できませんでした: ${error.message}`;
+        }
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        statusText.textContent = "認証コードを確認しています。";
+        try {
+          const data = await postJson("/api/sgate/email/confirm", {
+            email: emailInput.value,
+            code: codeInput.value,
+          });
+          document.querySelector("#resultTitle").textContent = "S-GATE認証が完了しました";
+          document.querySelector("#resultText").textContent = `${data.member.name} さんを認証しました。Discordロールを更新しました。`;
+          statusText.textContent = `付与ロール: ${data.roles.join(" / ")}`;
+        } catch (error) {
+          statusText.textContent = `認証できませんでした: ${error.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

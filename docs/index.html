@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JAMS | 情報宣伝部 部員認証・管理システム</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">JAMS / S-GATE</p>
+        <h1>情報宣伝部 部員認証・管理システム</h1>
+      </div>
+      <div class="header-actions">
+        <a id="discordLoginLink" class="button-link" href="#" aria-disabled="true">Discordで認証</a>
+        <button id="loadSampleButton" type="button">サンプル投入</button>
+        <button id="loadMembersButton" type="button" disabled>DB読込</button>
+        <button id="saveMembersButton" type="button" disabled>DB保存</button>
+        <button id="exportButton" type="button">CSV出力</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel import-panel" aria-labelledby="import-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="import-title">部員名簿インポート</h2>
+            <p>CSVを読み込むと、学籍番号から学部・学科・学年を補完し、RC/SV/JC別に部員No.を採番します。</p>
+            <p id="adminStatusText">S-GATE管理者状態を確認していません。</p>
+          </div>
+        </div>
+
+        <div class="import-box">
+          <input id="csvFileInput" type="file" accept=".csv,text/csv">
+          <div class="csv-format">
+            <strong>対応ヘッダー</strong>
+            <span>氏名, フリガナ, LINEの名前, 学籍番号, 大学メール, 区分, 役職, 配属先, 認証状態, 新歓, 第1回, 第2回, 第3回, 第4回, 第5回</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="集計">
+        <article class="stat-card">
+          <span>総部員</span>
+          <strong id="totalCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>RC</span>
+          <strong id="rcCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>SV</span>
+          <strong id="svCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>JC</span>
+          <strong id="jcCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>S-GATE管理者</span>
+          <strong id="adminCount">0</strong>
+        </article>
+      </section>
+
+      <section class="panel" aria-labelledby="members-title">
+        <div class="table-toolbar">
+          <div>
+            <h2 id="members-title">部員一覧</h2>
+            <p id="statusText">CSVを読み込んでください。</p>
+          </div>
+          <label class="search-field">
+            <span>検索</span>
+            <input id="searchInput" type="search" placeholder="氏名・学籍番号・配属先">
+          </label>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>部員No.</th>
+                <th>区分</th>
+                <th>氏名</th>
+                <th>学籍番号</th>
+                <th>大学メール</th>
+                <th>学年</th>
+                <th>学部</th>
+                <th>学科</th>
+                <th>役職</th>
+                <th>配属先</th>
+                <th>認証状態</th>
+                <th>S-GATEロール</th>
+                <th>全体会</th>
+              </tr>
+            </thead>
+            <tbody id="memberTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

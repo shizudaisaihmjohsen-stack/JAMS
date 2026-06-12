@@ -1,0 +1,8 @@
+.env
+.dev.vars
+.cloudflare-secrets.env
+node_modules/
+.wrangler/
+dist/
+*.csv
+*.xlsx
