@@ -7,6 +7,7 @@
     "check:setup": "node scripts/check-setup.mjs",
     "build:secrets": "node scripts/build-secrets-file.mjs",
     "build:pages": "node scripts/build-pages.mjs",
+    "discord:commands": "node scripts/register-discord-commands.mjs",
     "d1:migrate": "npx wrangler d1 execute jams --file=worker/schema.sql --remote",
     "dev:worker": "npx wrangler dev",
     "deploy:worker": "npx wrangler deploy --secrets-file .cloudflare-secrets.env"

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS email_verification_codes (
   email TEXT PRIMARY KEY,
   discord_user_id TEXT NOT NULL,
   code_hash TEXT NOT NULL,
+  token_hash TEXT,
   expires_at INTEGER NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
@@ -38,3 +39,5 @@ CREATE TABLE IF NOT EXISTS email_verification_codes (
 
 CREATE INDEX IF NOT EXISTS idx_email_verification_codes_discord_user_id
   ON email_verification_codes(discord_user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_codes_token_hash
+  ON email_verification_codes(token_hash);

@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 const secretKeys = [
   "DISCORD_CLIENT_ID",
   "DISCORD_CLIENT_SECRET",
+  "DISCORD_PUBLIC_KEY",
   "DISCORD_BOT_TOKEN",
   "DISCORD_GUILD_ID",
   "DISCORD_ROLE_DIRECTOR",

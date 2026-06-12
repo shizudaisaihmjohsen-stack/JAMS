@@ -63,7 +63,18 @@ window.JAMS_CONFIG = {
 };
 ```
 
-現在のWorkerは、Discord OAuth完了時にサーバー参加を試行し、`[S-GATE] 未認証` ロールを付与します。`S-GATE` がBot自身の管理ロールの場合、人間には付与できないため付与対象から外しています。
+現在の主な認証フローは、Discordサーバー内の `/auth` コマンドです。
+
+1. 部員が招待URLからDiscordサーバーに参加します。
+2. 未認証ロールで見える認証チャンネルで `/auth` を実行します。
+3. Discord上の入力フォームに学籍番号と大学メールを入力します。
+4. D1の名簿と照合し、一致した場合は大学メールへ認証コードを送信します。
+5. GitHub Pages上のコード入力ページで認証コードを入力します。
+6. 正しければ `[S-GATE] 未認証` を外し、`[S-GATE] 認証済`、RC/SV/JC、配属先ロールを付与します。
+
+旧方式として、Discord OAuth開始URLから認証するフローも残しています。万一Slash Command側に問題が出た場合の予備として使えます。
+
+OAuth方式では、Discord OAuth完了時にサーバー参加を試行し、`[S-GATE] 未認証` ロールを付与します。`S-GATE` がBot自身の管理ロールの場合、人間には付与できないため付与対象から外しています。
 
 その後、大学メールアドレスに認証コードを送信し、D1の `members.email` と照合して認証済みロールへ切り替えます。
 
@@ -139,8 +150,21 @@ JAMS_FRONTEND_URL
 JAMS_FRONTEND_ORIGIN
 S_GATE_ADMIN_DISCORD_IDS
 DISCORD_ROLE_SV
+DISCORD_PUBLIC_KEY
 GOOGLE_APPS_SCRIPT_MAIL_URL
 GOOGLE_APPS_SCRIPT_MAIL_SECRET
+```
+
+Discordの `/auth` コマンドは次のコマンドで登録します。
+
+```sh
+npm run discord:commands
+```
+
+Discord Developer PortalのInteractions Endpoint URLには次を設定します。
+
+```text
+https://jams-s-gate.shizudaisai-hm.workers.dev/discord/interactions
 ```
 
 ### D1
