@@ -208,7 +208,7 @@ async function processAuthModalSubmit(interaction, env) {
     `).bind(email, discordUserId, codeHash, tokenHash, expiresAt, Date.now()).run();
 
     await sendVerificationEmail(email, code, env);
-    const verifyUrl = `${getFrontendUrlFromEnv(env)}?mode=token&token=${encodeURIComponent(token)}`;
+    const verifyUrl = `${getVerificationUrlFromEnv(env)}?token=${encodeURIComponent(token)}`;
     await editInteractionResponse(interaction, env, [
       "大学メールに認証コードを送信しました。",
       "下のページで6桁のコードを入力してください。",
@@ -1142,6 +1142,19 @@ function getFrontendUrl(request, env) {
 
 function getFrontendUrlFromEnv(env) {
   return env.JAMS_FRONTEND_URL || "sgate-result.html";
+}
+
+function getVerificationUrlFromEnv(env) {
+  const frontendUrl = getFrontendUrlFromEnv(env);
+  try {
+    const url = new URL(frontendUrl);
+    url.pathname = url.pathname.replace(/[^/]*$/, "verify.html");
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "verify.html";
+  }
 }
 
 function getSessionCookieSameSite(request, env) {

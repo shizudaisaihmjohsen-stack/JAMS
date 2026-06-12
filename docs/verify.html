@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>S-GATE 認証コード入力 | JAMS</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="result-page">
+      <section class="panel result-panel">
+        <p class="eyebrow">S-GATE</p>
+        <h1 id="resultTitle">認証コードを入力してください</h1>
+        <p id="resultText">大学メールに届いた6桁の認証コードを入力すると、Discordロールを更新します。</p>
+        <form id="verificationForm" class="verify-form">
+          <label>
+            <span>認証コード</span>
+            <input id="verificationCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required>
+          </label>
+          <button type="submit">認証を完了</button>
+          <p id="verificationStatus" class="form-status"></p>
+        </form>
+        <a class="button-link" href="index.html">JAMSに戻る</a>
+      </section>
+    </main>
+    <script src="config.js"></script>
+    <script>
+      const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl?.replace(/\/$/, "");
+      const params = new URLSearchParams(location.search);
+      const token = params.get("token");
+      const form = document.querySelector("#verificationForm");
+      const statusText = document.querySelector("#verificationStatus");
+      const codeInput = document.querySelector("#verificationCodeInput");
+
+      if (!sGateBaseUrl || !token) {
+        form.hidden = true;
+        document.querySelector("#resultTitle").textContent = "認証リンクが正しくありません";
+        document.querySelector("#resultText").textContent = "Discordの /auth から表示されたリンクを開き直してください。";
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        statusText.textContent = "認証コードを確認しています。";
+        try {
+          const response = await fetch(`${sGateBaseUrl}/api/sgate/email/confirm-token`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token,
+              code: codeInput.value,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || data.message || data.error || "request_failed");
+          }
+          document.querySelector("#resultTitle").textContent = "S-GATE認証が完了しました";
+          document.querySelector("#resultText").textContent = `${data.member.name} さんを認証しました。Discordロールを更新しました。`;
+          statusText.textContent = `付与ロール: ${data.roles.join(" / ")}`;
+        } catch (error) {
+          statusText.textContent = `認証できませんでした: ${error.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

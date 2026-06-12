@@ -5,6 +5,7 @@ const publicFiles = [
   "styles.css",
   "app.js",
   "sgate-result.html",
+  "verify.html",
   "config.js",
 ];
 
