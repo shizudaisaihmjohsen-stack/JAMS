@@ -6,108 +6,137 @@
     <title>JAMS | 情報宣伝部 部員認証・管理システム</title>
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body>
-    <header class="site-header">
-      <div class="wrap site-header-inner">
-        <div class="brand">
-          <div class="brand-mark">
-            <img class="brand-logo" src="assets/hm-logo.png" alt="浜松静大祭実行委員会">
-          </div>
+  <body class="admin-body">
+    <div class="admin-shell">
+      <aside class="sidebar" aria-label="管理メニュー">
+        <div class="sidebar-brand">
+          <img src="assets/hm-logo.png" alt="浜松静大祭実行委員会">
           <div>
-            <div class="brand-kicker">浜松静大祭実行委員会</div>
-            <h1>情報宣伝部 部員管理システム</h1>
+            <span>JAMS</span>
+            <strong>部員管理</strong>
           </div>
         </div>
-        <nav id="mainNav" class="top-switch-nav" aria-label="管理操作">
-          <a id="discordLoginLink" class="tab active" href="#" aria-disabled="true"><span>AUTH</span>認証</a>
-          <button id="loadMembersButton" class="tab" type="button" disabled><span>DATA</span>読込</button>
-          <button id="saveMembersButton" class="tab" type="button" disabled><span>SAVE</span>保存</button>
-          <button id="exportButton" class="tab" type="button"><span>CSV</span>出力</button>
-          <button id="loadSampleButton" class="tab" type="button"><span>DEMO</span>サンプル</button>
+
+        <nav class="side-nav">
+          <a class="side-nav-item active" href="#members-title">
+            <span class="nav-icon">M</span>
+            <span>部員一覧</span>
+          </a>
+          <a class="side-nav-item" href="#import-title">
+            <span class="nav-icon">I</span>
+            <span>CSV取込</span>
+          </a>
+          <a class="side-nav-item" href="verify.html">
+            <span class="nav-icon">S</span>
+            <span>S-GATE</span>
+          </a>
         </nav>
+
+        <div class="sidebar-footer">
+          <span>System</span>
+          <strong>情報宣伝部</strong>
+        </div>
+      </aside>
+
+      <div class="workbench">
+        <header class="topbar">
+          <div>
+            <p class="page-kicker">浜松静大祭実行委員会</p>
+            <h1>情報宣伝部 部員認証・管理システム</h1>
+          </div>
+          <div class="action-bar" aria-label="管理操作">
+            <a id="discordLoginLink" class="action-button primary" href="#" aria-disabled="true">管理者認証</a>
+            <button id="loadMembersButton" class="action-button" type="button" disabled>DB読込</button>
+            <button id="saveMembersButton" class="action-button" type="button" disabled>保存</button>
+            <button id="exportButton" class="action-button" type="button">CSV出力</button>
+            <button id="loadSampleButton" class="action-button ghost" type="button">サンプル</button>
+          </div>
+        </header>
+
+        <main class="layout">
+          <section class="summary-grid" aria-label="集計">
+            <article class="metric-card">
+              <span>総部員</span>
+              <strong id="totalCount">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>RC</span>
+              <strong id="rcCount">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>SV</span>
+              <strong id="svCount">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>JC</span>
+              <strong id="jcCount">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>S-GATE管理者</span>
+              <strong id="adminCount">0</strong>
+            </article>
+          </section>
+
+          <section class="panel import-panel" aria-labelledby="import-title">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Import</p>
+                <h2 id="import-title">部員名簿の取込</h2>
+              </div>
+              <p id="adminStatusText" class="status-pill">S-GATE管理者状態を確認していません。</p>
+            </div>
+
+            <div class="import-box">
+              <label class="file-field">
+                <span>CSVファイル</span>
+                <input id="csvFileInput" type="file" accept=".csv,text/csv">
+              </label>
+              <div class="csv-format">
+                <strong>対応ヘッダー</strong>
+                <span>氏名, フリガナ, LINEの名前, 学籍番号, 大学メール, 区分, 役職, 配属先, 認証状態, 新歓, 第1回, 第2回, 第3回, 第4回, 第5回</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel members-panel" aria-labelledby="members-title">
+            <div class="table-toolbar">
+              <div>
+                <p class="panel-kicker">Members</p>
+                <h2 id="members-title">部員一覧</h2>
+                <p id="statusText">CSVを読み込んでください。</p>
+              </div>
+              <label class="search-field">
+                <span>検索</span>
+                <input id="searchInput" type="search" placeholder="氏名・学籍番号・配属先">
+              </label>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>部員No.</th>
+                    <th>区分</th>
+                    <th>氏名</th>
+                    <th>学籍番号</th>
+                    <th>大学メール</th>
+                    <th>学年</th>
+                    <th>学部</th>
+                    <th>学科</th>
+                    <th>役職</th>
+                    <th>配属先</th>
+                    <th>認証状態</th>
+                    <th>S-GATEロール</th>
+                    <th>全体会</th>
+                  </tr>
+                </thead>
+                <tbody id="memberTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </main>
       </div>
-    </header>
-
-    <main class="layout">
-      <section class="panel import-panel feature-panel" aria-labelledby="import-title">
-        <div class="section-heading">
-          <div>
-            <p class="panel-kicker">DATA IMPORT</p>
-            <h2 id="import-title">部員名簿を読み込む</h2>
-            <p>CSVを読み込むと、学籍番号から学部・学科・学年を補完し、RC/SV/JC別に部員No.を採番します。</p>
-            <p id="adminStatusText">S-GATE管理者状態を確認していません。</p>
-          </div>
-        </div>
-
-        <div class="import-box">
-          <input id="csvFileInput" type="file" accept=".csv,text/csv">
-          <div class="csv-format">
-            <strong>対応ヘッダー</strong>
-            <span>氏名, フリガナ, LINEの名前, 学籍番号, 大学メール, 区分, 役職, 配属先, 認証状態, 新歓, 第1回, 第2回, 第3回, 第4回, 第5回</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="stats-grid" aria-label="集計">
-        <article class="stat-card">
-          <span>総部員</span>
-          <strong id="totalCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span>RC</span>
-          <strong id="rcCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span>SV</span>
-          <strong id="svCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span>JC</span>
-          <strong id="jcCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span>S-GATE管理者</span>
-          <strong id="adminCount">0</strong>
-        </article>
-      </section>
-
-      <section class="panel" aria-labelledby="members-title">
-        <div class="table-toolbar">
-          <div>
-            <p class="panel-kicker">MEMBERS</p>
-            <h2 id="members-title">部員一覧</h2>
-            <p id="statusText">CSVを読み込んでください。</p>
-          </div>
-          <label class="search-field">
-            <span>検索</span>
-            <input id="searchInput" type="search" placeholder="氏名・学籍番号・配属先">
-          </label>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>部員No.</th>
-                <th>区分</th>
-                <th>氏名</th>
-                <th>学籍番号</th>
-                <th>大学メール</th>
-                <th>学年</th>
-                <th>学部</th>
-                <th>学科</th>
-                <th>役職</th>
-                <th>配属先</th>
-                <th>認証状態</th>
-                <th>S-GATEロール</th>
-                <th>全体会</th>
-              </tr>
-            </thead>
-            <tbody id="memberTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+    </div>
 
     <script src="config.js"></script>
     <script src="app.js"></script>
