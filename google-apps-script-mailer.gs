@@ -1,4 +1,6 @@
-const SCRIPT_SECRET = PropertiesService.getScriptProperties().getProperty("S_GATE_MAIL_SECRET");
+const SCRIPT_SECRET =
+  PropertiesService.getScriptProperties().getProperty("GOOGLE_APPS_SCRIPT_MAIL_SECRET") ||
+  PropertiesService.getScriptProperties().getProperty("S_GATE_MAIL_SECRET");
 
 function doPost(e) {
   try {
