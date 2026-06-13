@@ -275,7 +275,7 @@ async function handleDiscordCallback(request, env) {
   });
 
   await addGuildMember(user.id, token.access_token, env);
-  await addRole(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
+  await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
 
   const session = await signSession({ userId: user.id, username: user.username, issuedAt: Date.now() }, env);
   const headers = new Headers({ Location: `${frontendUrl}?status=login_ok` });
@@ -988,6 +988,14 @@ async function addRole(userId, roleId, env, reason) {
     method: "PUT",
     headers: botHeaders(env, reason),
   }, [204]);
+}
+
+async function addRoleBestEffort(userId, roleId, env, reason) {
+  try {
+    await addRole(userId, roleId, env, reason);
+  } catch (error) {
+    console.warn(`Skipping optional role assignment: ${error.message}`);
+  }
 }
 
 async function removeRole(userId, roleId, env, reason) {
