@@ -583,8 +583,10 @@ function editMember(memberNo) {
   switchView("register");
   $("editingId").value = member.memberNo;
   $("name").value = member.name;
+  $("kana").value = member.kana;
   $("lineName").value = member.lineName;
   $("studentId").value = member.studentId;
+  $("email").value = member.email;
   setSelectedAssignments(getAssignmentsFromTeam(member.team));
   MEETING_LABELS.forEach((label, index) => {
     const input = $(`meet${index + 1}`);
@@ -768,8 +770,10 @@ function wireEvents() {
     const base = {
       memberNo: editingId,
       name: $("name").value,
+      kana: $("kana").value,
       lineName: $("lineName").value,
       studentId,
+      email: $("email").value,
       committeeType: editingId ? members.find((member) => member.memberNo === editingId)?.committeeType : "JC",
       team: getTeamFromAssignments(getSelectedAssignments()),
       authStatus: editingId ? members.find((member) => member.memberNo === editingId)?.authStatus : "未認証",

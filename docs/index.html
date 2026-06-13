@@ -33,46 +33,63 @@
             <h2>部員登録</h2>
             <form id="memberForm">
               <input type="hidden" id="editingId">
-              <div class="row">
-                <div><label for="name">氏名</label><input id="name" required autocomplete="name" placeholder="例：山田 太郎"></div>
-                <div><label for="lineName">LINE名</label><input id="lineName" required placeholder="例：たろう"></div>
-              </div>
-              <label for="studentId">学籍番号</label>
-              <input id="studentId" required placeholder="例：525A2001" maxlength="20">
-              <div class="derived" id="derivedBox">
-                <dl>
-                  <dt>学年</dt>
-                  <dd id="derivedGrade">未判定</dd>
-                  <dt>学部</dt>
-                  <dd id="derivedFaculty">未判定</dd>
-                  <dt>学科</dt>
-                  <dd id="derivedDepartment">未判定</dd>
-                </dl>
-              </div>
-              <label>配属先</label>
-              <div class="assignment-options" id="assignmentOptions">
-                <label class="check"><input type="checkbox" name="assignment" value="ポスター課"> ポスター課</label>
-                <label class="check"><input type="checkbox" name="assignment" value="パンフレット課"> パンフレット課</label>
-                <label class="check"><input type="checkbox" name="assignment" value="ウェブサイト広報課"> ウェブサイト広報課</label>
-                <label class="check"><input type="checkbox" name="assignment" value="学内情報宣伝課"> 学内情報宣伝課</label>
-                <label class="check"><input type="checkbox" name="assignment" value="学外情報宣伝課"> 学外情報宣伝課</label>
-                <label class="check"><input type="checkbox" name="assignment" value="マスコット課"> マスコット課</label>
-                <label class="check"><input type="checkbox" name="assignment" value="SNS広報課"> SNS広報課</label>
-              </div>
-              <div class="hint">複数配属の場合は、該当する課をすべて選択してください。</div>
-              <label>全体会への参加状況</label>
-              <div class="attendance">
-                <label class="check"><input type="checkbox" id="meet1"> 新歓</label>
-                <label class="check"><input type="checkbox" id="meet2"> 第1回</label>
-                <label class="check"><input type="checkbox" id="meet3"> 第2回</label>
-                <label class="check"><input type="checkbox" id="meet4"> 第3回</label>
-                <label class="check"><input type="checkbox" id="meet5"> 第4回</label>
-                <label class="check"><input type="checkbox" id="meet6"> 第5回</label>
-              </div>
-              <div id="formMessage"></div>
-              <div class="buttons">
-                <button class="primary" type="submit" id="saveBtn">登録する</button>
-                <button class="secondary" type="button" id="clearBtn">入力をクリア</button>
+              <div class="register-layout">
+                <div class="register-left">
+                  <div class="register-field-grid">
+                    <div><label for="name">氏名</label><input id="name" required autocomplete="name" placeholder="例：山田 太郎"></div>
+                    <div><label for="kana">フリガナ</label><input id="kana" placeholder="例：ヤマダ タロウ"></div>
+                    <div><label for="lineName">LINE名</label><input id="lineName" required placeholder="例：たろう"></div>
+                    <div><label for="studentId">学籍番号</label><input id="studentId" required placeholder="例：525A2001" maxlength="20"></div>
+                  </div>
+                  <div class="derived" id="derivedBox">
+                    <dl>
+                      <dt>学年</dt>
+                      <dd id="derivedGrade">未判定</dd>
+                      <dt>学部</dt>
+                      <dd id="derivedFaculty">未判定</dd>
+                      <dt>学科</dt>
+                      <dd id="derivedDepartment">未判定</dd>
+                    </dl>
+                  </div>
+                  <label for="email">メールアドレス</label>
+                  <input id="email" class="register-email-input" type="email" placeholder="例：example.25@shizuoka.ac.jp">
+                </div>
+
+                <div class="register-right">
+                  <div>
+                    <label>配属先</label>
+                    <div class="assignment-options" id="assignmentOptions">
+                      <label class="check"><input type="checkbox" name="assignment" value="ポスター課"> ポスター課</label>
+                      <label class="check"><input type="checkbox" name="assignment" value="パンフレット課"> パンフレット課</label>
+                      <label class="check"><input type="checkbox" name="assignment" value="ウェブサイト広報課"> ウェブサイト広報課</label>
+                      <label class="check"><input type="checkbox" name="assignment" value="学内情報宣伝課"> 学内情報宣伝課</label>
+                      <label class="check"><input type="checkbox" name="assignment" value="学外情報宣伝課"> 学外情報宣伝課</label>
+                      <label class="check"><input type="checkbox" name="assignment" value="マスコット課"> マスコット課</label>
+                      <label class="check"><input type="checkbox" name="assignment" value="SNS広報課"> SNS広報課</label>
+                    </div>
+                    <div class="hint">複数配属の場合は、該当する課をすべて選択してください。</div>
+                  </div>
+
+                  <div>
+                    <label>全体会への参加状況</label>
+                    <div class="attendance">
+                      <label class="check"><input type="checkbox" id="meet1"> 新歓</label>
+                      <label class="check"><input type="checkbox" id="meet2"> 第1回</label>
+                      <label class="check"><input type="checkbox" id="meet3"> 第2回</label>
+                      <label class="check"><input type="checkbox" id="meet4"> 第3回</label>
+                      <label class="check"><input type="checkbox" id="meet5"> 第4回</label>
+                      <label class="check"><input type="checkbox" id="meet6"> 第5回</label>
+                    </div>
+                  </div>
+
+                  <div class="register-actions">
+                    <div id="formMessage"></div>
+                    <div class="buttons">
+                      <button class="primary" type="submit" id="saveBtn">登録する</button>
+                      <button class="secondary" type="button" id="clearBtn">入力をクリア</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </form>
           </div>

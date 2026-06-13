@@ -4854,6 +4854,77 @@
       margin: 0;
     }
 
+    #view-register .register-layout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 34px;
+      align-items: stretch;
+    }
+
+    #view-register .register-left,
+    #view-register .register-right {
+      min-width: 0;
+    }
+
+    #view-register .register-right {
+      border-left: 1px solid var(--line);
+      padding-left: 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    #view-register .register-field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 22px;
+    }
+
+    #view-register .register-email-input {
+      width: min(100%, 560px);
+    }
+
+    #view-register .register-actions {
+      margin-top: auto;
+    }
+
+    #view-register .register-actions .buttons {
+      justify-content: flex-end;
+    }
+
+    #view-register .register-right .assignment-options {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    #view-register .register-right .attendance {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    @media(max-width: 860px) {
+      #view-register .register-layout {
+        grid-template-columns: 1fr;
+        row-gap: 24px;
+      }
+
+      #view-register .register-right {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding-left: 0;
+        padding-top: 24px;
+      }
+    }
+
+    @media(max-width: 560px) {
+      #view-register .register-field-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      #view-register .register-email-input {
+        width: 100%;
+      }
+    }
+
     @media(max-width: 560px) {
 
       #view-register .assignment-options .check,
