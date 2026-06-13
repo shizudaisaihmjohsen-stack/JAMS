@@ -412,7 +412,7 @@ function memberToRow(member) {
   return `<tr>
     <td>${escapeHtml(member.memberNo)}</td>
     <td>${escapeHtml(member.name)}</td>
-    <td>${escapeHtml(member.lineName)}</td>
+    <td>${escapeHtml(member.kana || "-")}</td>
     <td>${escapeHtml(member.studentId)}</td>
     <td>${assignments}</td>
     <td><button class="ghost" onclick="showProfileByNumber('${escapeHtml(member.memberNo)}')">詳細</button> <button class="secondary" onclick="editMember('${escapeHtml(member.memberNo)}')">編集</button> <button class="danger" onclick="deleteMember('${escapeHtml(member.memberNo)}')">削除</button></td>
@@ -426,6 +426,7 @@ function renderList() {
     displayMembers = displayMembers.filter((member) => [
       member.memberNo,
       member.name,
+      member.kana,
       member.lineName,
       member.studentId,
       member.team,
@@ -463,7 +464,7 @@ function renderList() {
     return;
   }
 
-  $("memberList").innerHTML = `<div class="table-wrap"><table><thead><tr><th>部員No.</th><th>氏名</th><th>LINE名</th><th>学籍番号</th><th>所属の課</th><th>操作</th></tr></thead><tbody>${displayMembers.map(memberToRow).join("")}</tbody></table></div>`;
+  $("memberList").innerHTML = `<div class="table-wrap"><table><thead><tr><th>部員No.</th><th>氏名</th><th>フリガナ</th><th>学籍番号</th><th>所属の課</th><th>操作</th></tr></thead><tbody>${displayMembers.map(memberToRow).join("")}</tbody></table></div>`;
 }
 
 function meetingSummary(member) {
@@ -474,24 +475,16 @@ function meetingSummary(member) {
 function renderManagementTable() {
   if (!elements.tableBody) return;
   if (!members.length) {
-    elements.tableBody.innerHTML = '<tr><td colspan="13">表示できる部員がいません。</td></tr>';
+    elements.tableBody.innerHTML = '<tr><td colspan="5">表示できる部員がいません。</td></tr>';
     return;
   }
   elements.tableBody.innerHTML = members.map((member) => `
     <tr>
       <td><strong>${escapeHtml(member.memberNo)}</strong></td>
-      <td>${escapeHtml(member.committeeType)}</td>
       <td>${escapeHtml(member.name)}</td>
+      <td>${escapeHtml(member.kana || "-")}</td>
       <td>${escapeHtml(member.studentId)}</td>
-      <td>${escapeHtml(member.email || "-")}</td>
-      <td>${escapeHtml(member.grade)}</td>
-      <td>${escapeHtml(member.faculty)}</td>
-      <td>${escapeHtml(member.department)}</td>
-      <td>${escapeHtml(member.position || "-")}</td>
-      <td>${escapeHtml(member.team || "-")}</td>
-      <td>${escapeHtml(member.authStatus)}</td>
-      <td>${member.discordRoles.map((role) => `<span class="pill">${escapeHtml(role)}</span>`).join("")}</td>
-      <td>${escapeHtml(meetingSummary(member))}</td>
+      <td><span class="pill sgate-status ${member.authStatus === "認証済" ? "green" : "gray"}">${escapeHtml(member.authStatus === "認証済" ? ROLE_NAMES.sGateVerified : ROLE_NAMES.sGateUnverified)}</span></td>
     </tr>
   `).join("");
 }
@@ -509,21 +502,20 @@ function profileHtml(member) {
   const assignmentsText = getAssignmentsFromTeam(member.team).length
     ? getAssignmentsFromTeam(member.team).map((assignment) => `<span class="id-assignment-text">${escapeHtml(assignment)}</span>`).join('<span class="id-separator">／</span>')
     : '<span class="id-muted">未設定</span>';
-  const attendedLabels = MEETING_LABELS.filter((label) => member.meetings[label] === "出席");
-  const attendanceText = attendedLabels.length ? escapeHtml(attendedLabels.join("・")) : '<span class="id-muted">未参加</span>';
   const code = member.committeeType || "JC";
+  const committeeLabel = code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "役員補佐";
   return `<div class="id-card-save-wrapper">
   <div class="id-card-image-area">
     <article class="id-card-profile">
       <div class="id-card-topbar">
         <div class="id-card-code">${escapeHtml(code)}</div>
-        <div class="id-card-dept">情報宣伝部 部員</div>
+        <div class="id-card-dept">情報宣伝部 ${escapeHtml(committeeLabel)}</div>
         <div class="id-card-no">${escapeHtml(member.memberNo)}</div>
       </div>
       <div class="id-card-main">
         <div class="id-card-name-row">
           <h2 class="id-card-name">${escapeHtml(member.name)}</h2>
-          <div class="id-card-head-right"><div class="id-card-line">LINE名：${escapeHtml(member.lineName)}</div></div>
+          <div class="id-card-head-right"><div class="id-card-line">${escapeHtml(member.kana || "-")}</div></div>
         </div>
         <div class="id-card-divider"></div>
         <div class="id-card-assignment-plain">
@@ -538,7 +530,8 @@ function profileHtml(member) {
       </div>
       <div class="id-card-actions">
         <div class="id-card-footer-meta">
-          <div class="id-card-attendance-meta">全体会　<span class="id-attendance-text">${attendanceText}</span></div>
+          <div class="id-card-attendance-meta">LINE名：${escapeHtml(member.lineName || "-")}</div>
+          <div class="id-card-attendance-meta">${escapeHtml(member.email || "-")}</div>
         </div>
         <div class="id-card-action-buttons">
           <button class="secondary" onclick="editMember('${escapeHtml(member.memberNo)}')">編集</button>
@@ -565,6 +558,7 @@ function searchMembers() {
   const found = members.filter((member) =>
     member.memberNo.toLowerCase() === key ||
     member.name.toLowerCase().includes(key) ||
+    member.kana.toLowerCase().includes(key) ||
     member.lineName.toLowerCase().includes(key) ||
     member.studentId.toLowerCase() === key
   );
@@ -587,6 +581,8 @@ function editMember(memberNo) {
   $("lineName").value = member.lineName;
   $("studentId").value = member.studentId;
   $("email").value = member.email;
+  $("committeeType").value = member.committeeType || "JC";
+  $("position").value = member.position || "";
   setSelectedAssignments(getAssignmentsFromTeam(member.team));
   MEETING_LABELS.forEach((label, index) => {
     const input = $(`meet${index + 1}`);
@@ -774,7 +770,8 @@ function wireEvents() {
       lineName: $("lineName").value,
       studentId,
       email: $("email").value,
-      committeeType: editingId ? members.find((member) => member.memberNo === editingId)?.committeeType : "JC",
+      committeeType: $("committeeType").value,
+      position: $("position").value,
       team: getTeamFromAssignments(getSelectedAssignments()),
       authStatus: editingId ? members.find((member) => member.memberNo === editingId)?.authStatus : "未認証",
       meetings: Object.fromEntries(MEETING_LABELS.map((label, index) => [label, $(`meet${index + 1}`).checked ? "出席" : "欠席"])),

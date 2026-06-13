@@ -41,7 +41,7 @@
                     <div><label for="lineName">LINE名</label><input id="lineName" required placeholder="例：たろう"></div>
                     <div><label for="studentId">学籍番号</label><input id="studentId" required placeholder="例：525A2001" maxlength="20"></div>
                   </div>
-                  <div class="derived" id="derivedBox">
+                  <div class="derived register-derived" id="derivedBox">
                     <dl>
                       <dt>学年</dt>
                       <dd id="derivedGrade">未判定</dd>
@@ -53,6 +53,24 @@
                   </div>
                   <label for="email">メールアドレス</label>
                   <input id="email" class="register-email-input" type="email" placeholder="例：example.25@shizuoka.ac.jp">
+                  <div class="register-field-grid register-role-grid">
+                    <div>
+                      <label for="committeeType">区分</label>
+                      <select id="committeeType">
+                        <option value="JC">JC</option>
+                        <option value="SV">SV</option>
+                        <option value="RC">RC</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="position">役職</label>
+                      <select id="position">
+                        <option value="">なし</option>
+                        <option value="部長">部長</option>
+                        <option value="課長">課長</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="register-right">
@@ -98,13 +116,13 @@
 
       <section id="view-list" class="view hidden">
         <div class="card list-card">
-          <p class="section-en">Members</p>
+          <p class="section-en">Member</p>
           <h2>部員一覧</h2>
           <div class="list-control-panel">
             <div class="list-control-grid">
               <div class="control-field control-field-wide">
                 <label for="listFilter">一覧内検索</label>
-                <input id="listFilter" placeholder="氏名・LINE名・学籍番号・配属先">
+                <input id="listFilter" placeholder="氏名・フリガナ・LINE名・学籍番号・配属先">
               </div>
               <div class="control-field">
                 <label for="assignmentFilter">課別絞り込み</label>
@@ -176,16 +194,18 @@
         <div class="card">
           <p class="section-en">Data</p>
           <h2>管理</h2>
-          <div class="screen-control-panel">
-            <p id="adminStatusText">管理者状態を確認していません。</p>
-            <div class="buttons">
+          <div class="screen-control-panel management-panel">
+            <div class="management-status-row">
+              <p id="adminStatusText">管理者状態を確認していません。</p>
+              <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
+            </div>
+            <div class="buttons management-primary-actions">
               <a id="discordLoginLink" class="primary" href="#" aria-disabled="true">管理者認証</a>
               <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
               <button class="primary" type="button" id="saveMembersButton" disabled>DB保存</button>
               <button class="secondary" type="button" id="exportButton">CSV出力</button>
             </div>
-            <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
-            <div class="buttons">
+            <div class="buttons management-secondary-actions">
               <label class="secondary" for="csvFileInput">CSVを読み込む</label>
               <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
               <button class="secondary" type="button" id="loadSampleButton">サンプル読込</button>
@@ -209,18 +229,10 @@
               <thead>
                 <tr>
                   <th>部員No.</th>
-                  <th>区分</th>
                   <th>氏名</th>
+                  <th>フリガナ</th>
                   <th>学籍番号</th>
-                  <th>大学メール</th>
-                  <th>学年</th>
-                  <th>学部</th>
-                  <th>学科</th>
-                  <th>役職</th>
-                  <th>配属先</th>
                   <th>認証状態</th>
-                  <th>S-GATEロール</th>
-                  <th>全体会</th>
                 </tr>
               </thead>
               <tbody id="memberTableBody"></tbody>

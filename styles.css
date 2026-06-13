@@ -5311,3 +5311,134 @@
       line-height: 1.25 !important;
       white-space: nowrap !important;
     }
+
+
+    .brand-mark {
+      width: 64px !important;
+      height: 64px !important;
+      flex-basis: 64px !important;
+    }
+
+    .brand-mark img {
+      width: 64px !important;
+      height: 64px !important;
+    }
+
+    .top-switch-nav .tab span {
+      width: 100% !important;
+      text-align: center !important;
+      text-indent: .20em;
+    }
+
+    #view-register .register-derived dl {
+      grid-template-columns: 82px minmax(0, 1fr) !important;
+      gap: 9px 14px !important;
+    }
+
+    #view-register .register-derived dt,
+    #view-register .register-derived dd {
+      min-height: 26px;
+      display: flex;
+      align-items: center;
+    }
+
+    #view-register .register-role-grid {
+      margin-top: 22px;
+    }
+
+    #view-register .register-role-grid select {
+      width: 100%;
+    }
+
+    #view-list .absence-checks,
+    #view-list .presence-checks {
+      padding-top: 6px !important;
+    }
+
+    #view-list .absence-checks .check,
+    #view-list .presence-checks .check {
+      height: 34px !important;
+      min-height: 34px !important;
+      line-height: 1.2 !important;
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+    }
+
+    #view-list .absence-checks .check input,
+    #view-list .presence-checks .check input {
+      align-self: center !important;
+      transform: none !important;
+    }
+
+    #view-settings .management-panel {
+      display: grid;
+      gap: 14px;
+      padding: 18px 20px !important;
+    }
+
+    #view-settings .management-status-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(220px, .8fr);
+      gap: 12px;
+      align-items: center;
+    }
+
+    #view-settings .management-status-row p,
+    #view-settings .management-status-row .hint {
+      margin: 0 !important;
+    }
+
+    #view-settings .management-primary-actions,
+    #view-settings .management-secondary-actions {
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+      justify-content: flex-start !important;
+    }
+
+    #view-settings .management-secondary-actions {
+      border-top: 1px solid var(--line);
+      padding-top: 12px !important;
+    }
+
+    #view-settings .derived {
+      margin-top: 18px !important;
+      margin-bottom: 18px !important;
+    }
+
+    #view-settings .table-wrap table {
+      min-width: 720px;
+    }
+
+    #view-settings .table-wrap th,
+    #view-settings .table-wrap td {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    #view-settings .sgate-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 132px;
+      padding: 5px 10px;
+      font-size: 12px;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    @media(max-width: 760px) {
+      .brand-mark {
+        width: 54px !important;
+        height: 54px !important;
+        flex-basis: 54px !important;
+      }
+
+      .brand-mark img {
+        width: 54px !important;
+        height: 54px !important;
+      }
+
+      #view-settings .management-status-row {
+        grid-template-columns: 1fr;
+      }
+    }
