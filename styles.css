@@ -4450,7 +4450,7 @@
 
     .top-switch-nav .tab {
       min-height: 0;
-      width: 72px;
+      width: 70px;
       border-radius: 999px;
       padding: 8px 15px 9px;
       background: transparent;
@@ -4461,6 +4461,7 @@
       line-height: 1.25;
       letter-spacing: .08em;
       white-space: nowrap;
+      text-align: center;
     }
 
     .top-switch-nav .tab::before {
@@ -4521,8 +4522,8 @@
       }
 
       .top-switch-nav .tab {
-        flex: 0 0 72px;
-        width: 72px;
+        flex: 0 0 70px;
+        width: 70px;
         padding: 8px 14px 9px;
       }
     }
