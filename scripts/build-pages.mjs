@@ -1,4 +1,4 @@
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 
 const publicFiles = [
   "index.html",
@@ -16,7 +16,9 @@ for (const file of publicFiles) {
   await copyFile(file, `docs/${file}`);
 }
 
-await copyFile("assets/hm-logo.png", "docs/assets/hm-logo.png");
+for (const asset of await readdir("assets")) {
+  await copyFile(`assets/${asset}`, `docs/assets/${asset}`);
+}
 
 await writeFile("docs/.nojekyll", "", "utf8");
 

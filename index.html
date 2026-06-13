@@ -6,122 +6,212 @@
     <title>JAMS | 情報宣伝部 部員認証・管理システム</title>
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body class="festival-body">
-    <div class="page-shell">
-      <header class="float-header">
-        <a class="brand-lockup" href="#top" aria-label="JAMS">
-          <img src="assets/hm-logo.png" alt="浜松静大祭実行委員会">
-          <span>JAMS</span>
-        </a>
-        <nav class="main-menu" aria-label="管理操作">
-          <a id="discordLoginLink" class="menu-link primary" href="#" aria-disabled="true"><span>AUTH</span>管理者認証</a>
-          <button id="loadMembersButton" class="menu-link" type="button" disabled><span>LOAD</span>DB読込</button>
-          <button id="saveMembersButton" class="menu-link" type="button" disabled><span>SAVE</span>保存</button>
-          <button id="exportButton" class="menu-link" type="button"><span>CSV</span>出力</button>
-          <button id="loadSampleButton" class="menu-link" type="button"><span>DEMO</span>サンプル</button>
-        </nav>
-      </header>
-
-      <main id="top">
-        <section class="hero-board" aria-labelledby="hero-title">
-          <div class="hero-copy">
-            <p class="section-label">SHIHA MEMBER AUTH GATE</p>
-            <h1 id="hero-title">情報宣伝部<br>部員認証・<br>管理システム</h1>
-            <p class="hero-lead">部員名簿、Discord認証、配属ロールをひとつの管理画面で扱います。</p>
+  <body>
+    <header class="site-header">
+      <div class="wrap site-header-inner">
+        <div class="brand">
+          <div class="brand-mark"><img src="assets/hm-logo-transparent.png" alt="浜松静大祭実行委員会"></div>
+          <div>
+            <div class="brand-kicker">浜松静大祭実行委員会</div>
+            <h1>情報宣伝部 部員管理システム</h1>
           </div>
-          <aside class="round-status" aria-label="S-GATE状態">
-            <span>STATUS</span>
-            <strong>S-GATE</strong>
+        </div>
+        <nav id="mainNav" class="top-switch-nav" aria-label="画面切り替えメニュー">
+          <button class="tab active" data-view="register"><span>Entry</span>登録</button>
+          <button class="tab" data-view="list"><span>Members</span>一覧</button>
+          <button class="tab" data-view="search"><span>Search</span>検索</button>
+          <button class="tab" data-view="settings"><span>Data</span>管理</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section id="view-register" class="view">
+        <div class="grid">
+          <div class="card">
+            <p class="section-en">Entry</p>
+            <h2>部員登録</h2>
+            <form id="memberForm">
+              <input type="hidden" id="editingId">
+              <div class="row">
+                <div><label for="name">氏名</label><input id="name" required autocomplete="name" placeholder="例：山田 太郎"></div>
+                <div><label for="lineName">LINE名</label><input id="lineName" required placeholder="例：たろう"></div>
+              </div>
+              <label for="studentId">学籍番号</label>
+              <input id="studentId" required placeholder="例：525A2001" maxlength="20">
+              <div class="derived" id="derivedBox">
+                <dl>
+                  <dt>学年</dt>
+                  <dd id="derivedGrade">未判定</dd>
+                  <dt>学部</dt>
+                  <dd id="derivedFaculty">未判定</dd>
+                  <dt>学科</dt>
+                  <dd id="derivedDepartment">未判定</dd>
+                </dl>
+              </div>
+              <label>配属先</label>
+              <div class="assignment-options" id="assignmentOptions">
+                <label class="check"><input type="checkbox" name="assignment" value="ポスター課"> ポスター課</label>
+                <label class="check"><input type="checkbox" name="assignment" value="パンフレット課"> パンフレット課</label>
+                <label class="check"><input type="checkbox" name="assignment" value="ウェブサイト広報課"> ウェブサイト広報課</label>
+                <label class="check"><input type="checkbox" name="assignment" value="学内情報宣伝課"> 学内情報宣伝課</label>
+                <label class="check"><input type="checkbox" name="assignment" value="学外情報宣伝課"> 学外情報宣伝課</label>
+                <label class="check"><input type="checkbox" name="assignment" value="マスコット課"> マスコット課</label>
+                <label class="check"><input type="checkbox" name="assignment" value="SNS広報課"> SNS広報課</label>
+              </div>
+              <div class="hint">複数配属の場合は、該当する課をすべて選択してください。</div>
+              <label>全体会への参加状況</label>
+              <div class="attendance">
+                <label class="check"><input type="checkbox" id="meet1"> 新歓</label>
+                <label class="check"><input type="checkbox" id="meet2"> 第1回</label>
+                <label class="check"><input type="checkbox" id="meet3"> 第2回</label>
+                <label class="check"><input type="checkbox" id="meet4"> 第3回</label>
+                <label class="check"><input type="checkbox" id="meet5"> 第4回</label>
+                <label class="check"><input type="checkbox" id="meet6"> 第5回</label>
+              </div>
+              <div id="formMessage"></div>
+              <div class="buttons">
+                <button class="primary" type="submit" id="saveBtn">登録する</button>
+                <button class="secondary" type="button" id="clearBtn">入力をクリア</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-list" class="view hidden">
+        <div class="card list-card">
+          <p class="section-en">Members</p>
+          <h2>部員一覧</h2>
+          <div class="list-control-panel">
+            <div class="list-control-grid">
+              <div class="control-field control-field-wide">
+                <label for="listFilter">一覧内検索</label>
+                <input id="listFilter" placeholder="氏名・LINE名・学籍番号・配属先">
+              </div>
+              <div class="control-field">
+                <label for="assignmentFilter">課別絞り込み</label>
+                <select id="assignmentFilter">
+                  <option value="">すべての課</option>
+                  <option value="ポスター課">ポスター課</option>
+                  <option value="パンフレット課">パンフレット課</option>
+                  <option value="ウェブサイト広報課">ウェブサイト広報課</option>
+                  <option value="学内情報宣伝課">学内情報宣伝課</option>
+                  <option value="学外情報宣伝課">学外情報宣伝課</option>
+                  <option value="マスコット課">マスコット課</option>
+                  <option value="SNS広報課">SNS広報課</option>
+                  <option value="__unassigned__">未設定</option>
+                </select>
+              </div>
+              <div class="control-field">
+                <label for="sortBy">並び替え</label>
+                <select id="sortBy">
+                  <option value="number">部員ナンバー順</option>
+                  <option value="name">氏名順</option>
+                  <option value="studentId">学籍番号順</option>
+                  <option value="assignment">配属先順</option>
+                </select>
+              </div>
+            </div>
+            <div class="meeting-filter-grid">
+              <div class="list-filter-panel compact-filter">
+                <div class="filter-title">全体会 未参加者</div>
+                <div class="absence-checks" id="absenceFilters">
+                  <label class="check"><input type="checkbox" name="absenceFilter" value="0"> 新歓</label>
+                  <label class="check"><input type="checkbox" name="absenceFilter" value="1"> 第1回</label>
+                  <label class="check"><input type="checkbox" name="absenceFilter" value="2"> 第2回</label>
+                  <label class="check"><input type="checkbox" name="absenceFilter" value="3"> 第3回</label>
+                  <label class="check"><input type="checkbox" name="absenceFilter" value="4"> 第4回</label>
+                  <label class="check"><input type="checkbox" name="absenceFilter" value="5"> 第5回</label>
+                </div>
+              </div>
+              <div class="list-filter-panel compact-filter">
+                <div class="filter-title">全体会 参加者</div>
+                <div class="presence-checks" id="presenceFilters">
+                  <label class="check"><input type="checkbox" name="presenceFilter" value="0"> 新歓</label>
+                  <label class="check"><input type="checkbox" name="presenceFilter" value="1"> 第1回</label>
+                  <label class="check"><input type="checkbox" name="presenceFilter" value="2"> 第2回</label>
+                  <label class="check"><input type="checkbox" name="presenceFilter" value="3"> 第3回</label>
+                  <label class="check"><input type="checkbox" name="presenceFilter" value="4"> 第4回</label>
+                  <label class="check"><input type="checkbox" name="presenceFilter" value="5"> 第5回</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="memberList"></div>
+        </div>
+      </section>
+
+      <section id="view-search" class="view hidden">
+        <div class="card">
+          <p class="section-en">Search</p>
+          <h2>個人情報検索</h2>
+          <div class="screen-control-panel search-control-panel">
+            <label for="searchKey">部員番号・氏名・LINE名・学籍番号のいずれかを入力してください</label>
+            <input id="searchKey" placeholder="例：J1 / 山田 / たろう / 525A2001">
+            <div class="buttons"><button class="primary" id="searchBtn">検索する</button><button class="secondary" id="showAllProfiles">全員を表示</button></div>
+          </div>
+          <div id="searchResult" style="margin-top:16px"></div>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view hidden">
+        <div class="card">
+          <p class="section-en">Data</p>
+          <h2>管理</h2>
+          <div class="screen-control-panel">
             <p id="adminStatusText">管理者状態を確認していません。</p>
-          </aside>
-          <div class="scroll-note">SCROLL</div>
-        </section>
-
-        <section class="metric-strip" aria-label="集計">
-          <article class="metric-card">
-            <span>ALL MEMBERS</span>
-            <strong id="totalCount">0</strong>
-            <p>総部員</p>
-          </article>
-          <article class="metric-card">
-            <span>REGULAR</span>
-            <strong id="rcCount">0</strong>
-            <p>RC</p>
-          </article>
-          <article class="metric-card">
-            <span>SUPPORT</span>
-            <strong id="svCount">0</strong>
-            <p>SV</p>
-          </article>
-          <article class="metric-card">
-            <span>JUNIOR</span>
-            <strong id="jcCount">0</strong>
-            <p>JC</p>
-          </article>
-          <article class="metric-card">
-            <span>ADMIN</span>
-            <strong id="adminCount">0</strong>
-            <p>S-GATE管理者</p>
-          </article>
-        </section>
-
-        <section class="content-grid">
-          <section class="panel import-panel" aria-labelledby="import-title">
-            <div class="panel-heading">
-              <p class="section-label">DATA IMPORT</p>
-              <h2 id="import-title">部員名簿を読み込む</h2>
+            <div class="buttons">
+              <a id="discordLoginLink" class="primary" href="#" aria-disabled="true">管理者認証</a>
+              <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
+              <button class="primary" type="button" id="saveMembersButton" disabled>DB保存</button>
+              <button class="secondary" type="button" id="exportButton">CSV出力</button>
             </div>
-            <div class="import-box">
-              <label class="file-field">
-                <span>CSV FILE</span>
-                <input id="csvFileInput" type="file" accept=".csv,text/csv">
-              </label>
-              <div class="csv-format">
-                <strong>対応ヘッダー</strong>
-                <span>氏名, フリガナ, LINEの名前, 学籍番号, 大学メール, 区分, 役職, 配属先, 認証状態, 新歓, 第1回, 第2回, 第3回, 第4回, 第5回</span>
-              </div>
+            <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
+            <div class="buttons">
+              <label class="secondary" for="csvFileInput">CSVを読み込む</label>
+              <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+              <button class="secondary" type="button" id="loadSampleButton">サンプル読込</button>
+              <button class="danger" type="button" id="deleteAllBtn">全データ削除</button>
             </div>
-          </section>
+            <div id="dataMessage"></div>
+          </div>
 
-          <section class="panel members-panel" aria-labelledby="members-title">
-            <div class="table-toolbar">
-              <div>
-                <p class="section-label">MEMBERS</p>
-                <h2 id="members-title">部員一覧</h2>
-                <p id="statusText">CSVを読み込んでください。</p>
-              </div>
-              <label class="search-field">
-                <span>SEARCH</span>
-                <input id="searchInput" type="search" placeholder="氏名・学籍番号・配属先">
-              </label>
-            </div>
+          <div class="derived">
+            <dl>
+              <dt>総部員</dt><dd id="totalCount">0</dd>
+              <dt>RC</dt><dd id="rcCount">0</dd>
+              <dt>SV</dt><dd id="svCount">0</dd>
+              <dt>JC</dt><dd id="jcCount">0</dd>
+              <dt>S-GATE管理者</dt><dd id="adminCount">0</dd>
+            </dl>
+          </div>
 
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>部員No.</th>
-                    <th>区分</th>
-                    <th>氏名</th>
-                    <th>学籍番号</th>
-                    <th>大学メール</th>
-                    <th>学年</th>
-                    <th>学部</th>
-                    <th>学科</th>
-                    <th>役職</th>
-                    <th>配属先</th>
-                    <th>認証状態</th>
-                    <th>S-GATEロール</th>
-                    <th>全体会</th>
-                  </tr>
-                </thead>
-                <tbody id="memberTableBody"></tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-      </main>
-    </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>部員No.</th>
+                  <th>区分</th>
+                  <th>氏名</th>
+                  <th>学籍番号</th>
+                  <th>大学メール</th>
+                  <th>学年</th>
+                  <th>学部</th>
+                  <th>学科</th>
+                  <th>役職</th>
+                  <th>配属先</th>
+                  <th>認証状態</th>
+                  <th>S-GATEロール</th>
+                  <th>全体会</th>
+                </tr>
+              </thead>
+              <tbody id="memberTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <script src="config.js"></script>
     <script src="app.js"></script>
