@@ -274,7 +274,7 @@ async function handleDiscordCallback(request, env) {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
 
-  await addGuildMember(user.id, token.access_token, env);
+  await addGuildMemberBestEffort(user.id, token.access_token, env);
   await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
 
   const session = await signSession({ userId: user.id, username: user.username, issuedAt: Date.now() }, env);
@@ -980,6 +980,14 @@ async function addGuildMember(userId, accessToken, env) {
     headers: botHeaders(env),
     body: JSON.stringify({ access_token: accessToken }),
   }, [201, 204]);
+}
+
+async function addGuildMemberBestEffort(userId, accessToken, env) {
+  try {
+    await addGuildMember(userId, accessToken, env);
+  } catch (error) {
+    console.warn(`Skipping optional guild member add: ${error.message}`);
+  }
 }
 
 async function addRole(userId, roleId, env, reason) {
