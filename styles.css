@@ -4450,6 +4450,7 @@
 
     .top-switch-nav .tab {
       min-height: 0;
+      width: 72px;
       border-radius: 999px;
       padding: 8px 15px 9px;
       background: transparent;
@@ -4520,7 +4521,8 @@
       }
 
       .top-switch-nav .tab {
-        flex: 0 0 auto;
+        flex: 0 0 72px;
+        width: 72px;
         padding: 8px 14px 9px;
       }
     }
