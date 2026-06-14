@@ -5380,7 +5380,18 @@
       padding-left: 0 !important;
       margin-left: auto !important;
       margin-right: auto !important;
-      display: block !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: .20em !important;
+      letter-spacing: 0 !important;
+      transform: none !important;
+    }
+
+    .top-switch-nav .tab .tab-en i {
+      display: block;
+      font-style: normal;
+      line-height: 1;
     }
 
     .top-switch-nav .tab {
@@ -5389,14 +5400,12 @@
       align-items: center !important;
       justify-content: center !important;
       text-align: center !important;
+      padding-left: 8px !important;
+      padding-right: 8px !important;
     }
 
-    .top-switch-nav .tab:nth-child(2) span {
-      transform: translateX(-5px);
-    }
-
-    .top-switch-nav .tab:nth-child(3) span {
-      transform: translateX(-4px);
+    .top-switch-nav .tab span::after {
+      content: none !important;
     }
 
     #view-register .register-derived dl {
