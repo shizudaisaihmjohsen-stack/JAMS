@@ -5312,6 +5312,55 @@
       white-space: nowrap !important;
     }
 
+    #memberList .assignment-poster,
+    #view-list #memberList .assignment-poster {
+      background: #f26b86 !important;
+      color: #fff !important;
+      border-color: #f26b86 !important;
+    }
+
+    #memberList .assignment-pamphlet,
+    #view-list #memberList .assignment-pamphlet {
+      background: #ff8574 !important;
+      color: #fff !important;
+      border-color: #ff8574 !important;
+    }
+
+    #memberList .assignment-web,
+    #view-list #memberList .assignment-web {
+      background: #8bd978 !important;
+      color: #fff !important;
+      border-color: #8bd978 !important;
+    }
+
+    #memberList .assignment-campus-pr,
+    #view-list #memberList .assignment-campus-pr {
+      background: #56c9c9 !important;
+      color: #fff !important;
+      border-color: #56c9c9 !important;
+    }
+
+    #memberList .assignment-external-pr,
+    #view-list #memberList .assignment-external-pr {
+      background: #5ec8df !important;
+      color: #fff !important;
+      border-color: #5ec8df !important;
+    }
+
+    #memberList .assignment-mascot,
+    #view-list #memberList .assignment-mascot {
+      background: #b486ea !important;
+      color: #fff !important;
+      border-color: #b486ea !important;
+    }
+
+    #memberList .assignment-sns,
+    #view-list #memberList .assignment-sns {
+      background: #d46cc5 !important;
+      color: #fff !important;
+      border-color: #d46cc5 !important;
+    }
+
 
     .brand-mark {
       width: 64px !important;
@@ -5325,9 +5374,29 @@
     }
 
     .top-switch-nav .tab span {
-      width: 100% !important;
+      width: auto !important;
       text-align: center !important;
-      text-indent: .20em;
+      text-indent: 0 !important;
+      padding-left: 0 !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      display: block !important;
+    }
+
+    .top-switch-nav .tab {
+      display: inline-flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+    }
+
+    .top-switch-nav .tab:nth-child(2) span {
+      transform: translateX(-5px);
+    }
+
+    .top-switch-nav .tab:nth-child(3) span {
+      transform: translateX(-4px);
     }
 
     #view-register .register-derived dl {
@@ -5406,7 +5475,7 @@
     }
 
     #view-settings .table-wrap table {
-      min-width: 720px;
+      min-width: 860px;
     }
 
     #view-settings .table-wrap th,
@@ -5423,6 +5492,12 @@
       padding: 5px 10px;
       font-size: 12px;
       line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    #view-settings .discord-id-cell {
+      font-family: "Inter", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", "YuGothic", "Meiryo", system-ui, sans-serif;
+      letter-spacing: .02em;
       white-space: nowrap;
     }
 
