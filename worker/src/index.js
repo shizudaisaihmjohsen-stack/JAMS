@@ -1,6 +1,7 @@
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const SESSION_COOKIE = "sgate_session";
 const STATE_COOKIE = "sgate_state";
+const RETURN_TO_COOKIE = "sgate_return_to";
 
 const roleNameToEnvKey = {
   "部長": "DISCORD_ROLE_DIRECTOR",
@@ -251,8 +252,10 @@ function getModalValues(interaction) {
 
 async function startDiscordLogin(request, env) {
   assertRequiredEnv(env);
+  const url = new URL(request.url);
   const redirectUri = getRedirectUri(request, env);
   const state = crypto.randomUUID();
+  const returnTo = sanitizeReturnTo(url.searchParams.get("return_to"), env);
   const authorizeUrl = new URL("https://discord.com/oauth2/authorize");
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", env.DISCORD_CLIENT_ID);
@@ -261,19 +264,26 @@ async function startDiscordLogin(request, env) {
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("prompt", "consent");
 
+  const headers = new Headers({
+    Location: authorizeUrl.toString(),
+  });
+  headers.append("Set-Cookie", cookie(request, STATE_COOKIE, state, { maxAge: 600, httpOnly: true, sameSite: "Lax" }));
+  if (returnTo) {
+    headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, encodeURIComponent(returnTo), { maxAge: 600, httpOnly: true, sameSite: "Lax" }));
+  } else {
+    headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+  }
+
   return new Response(null, {
     status: 302,
-    headers: {
-      Location: authorizeUrl.toString(),
-      "Set-Cookie": cookie(request, STATE_COOKIE, state, { maxAge: 600, httpOnly: true, sameSite: "Lax" }),
-    },
+    headers,
   });
 }
 
 async function handleDiscordCallback(request, env) {
   assertRequiredEnv(env);
   const url = new URL(request.url);
-  const frontendUrl = getFrontendUrl(request, env);
+  const frontendUrl = getLoginReturnUrl(request, env);
   const error = url.searchParams.get("error");
   if (error) {
     return redirect(`${frontendUrl}?status=discord_error`);
@@ -297,6 +307,7 @@ async function handleDiscordCallback(request, env) {
   const session = await signSession({ userId: user.id, username: user.username, issuedAt: Date.now() }, env);
   const headers = new Headers({ Location: `${frontendUrl}?status=login_ok` });
   headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+  headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
   headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, session, {
     maxAge: 60 * 60 * 12,
     httpOnly: true,
@@ -1371,6 +1382,37 @@ function getFrontendUrl(request, env) {
   }
   const url = new URL(request.url);
   return `${url.origin}/sgate-result.html`;
+}
+
+function getLoginReturnUrl(request, env) {
+  const stored = readCookie(request, RETURN_TO_COOKIE);
+  if (!stored) {
+    return getFrontendUrl(request, env);
+  }
+  try {
+    const decoded = decodeURIComponent(stored);
+    return sanitizeReturnTo(decoded, env) || getFrontendUrl(request, env);
+  } catch {
+    return getFrontendUrl(request, env);
+  }
+}
+
+function sanitizeReturnTo(value, env) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    const allowedOrigins = [
+      env.JAMS_FRONTEND_ORIGIN,
+      env.JAMS_FRONTEND_URL ? new URL(env.JAMS_FRONTEND_URL).origin : "",
+    ].filter(Boolean);
+    if (!allowedOrigins.includes(url.origin)) {
+      return "";
+    }
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
 }
 
 function getFrontendUrlFromEnv(env) {

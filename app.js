@@ -1005,12 +1005,13 @@ window.deleteMember = deleteMember;
 
 if (sGateBaseUrl) {
   const loginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/login`;
+  const appLoginUrl = `${loginUrl}?return_to=${encodeURIComponent(window.location.href.split("#")[0])}`;
   if (elements.discordLoginLink) {
-    elements.discordLoginLink.href = loginUrl;
+    elements.discordLoginLink.href = appLoginUrl;
     elements.discordLoginLink.removeAttribute("aria-disabled");
   }
   if (elements.appLoginLink) {
-    elements.appLoginLink.href = loginUrl;
+    elements.appLoginLink.href = appLoginUrl;
     elements.appLoginLink.removeAttribute("aria-disabled");
   }
 } else {
