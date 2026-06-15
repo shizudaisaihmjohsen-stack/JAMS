@@ -94,6 +94,10 @@ async function route(request, env, ctx) {
     return getAdminStatus(request, env);
   }
 
+  if (request.method === "GET" && url.pathname === "/api/app/bootstrap") {
+    return getAppBootstrap(request, env);
+  }
+
   if (request.method === "POST" && url.pathname === "/api/admin/members/import") {
     return importMembers(request, env);
   }
@@ -527,11 +531,47 @@ async function getAdminStatus(request, env) {
   if (!session) {
     return json({ authenticated: false, admin: false }, 200, request, env);
   }
+  const admin = await isAdminSession(session, env);
   return json({
     authenticated: true,
-    admin: isAdminDiscordUser(session.userId, env),
+    admin,
     userId: session.userId,
     username: session.username,
+  }, 200, request, env);
+}
+
+async function getAppBootstrap(request, env) {
+  if (!env.DB) {
+    throw new Error("Missing required DB binding");
+  }
+  const session = await readSignedSession(request, env);
+  if (!session) {
+    return json({ authenticated: false, access: "guest", members: [] }, 200, request, env);
+  }
+
+  const member = await findMemberByDiscordUserId(session.userId, env);
+  const access = getAccessLevel(session, member, env);
+  if (access === "none") {
+    return json({
+      authenticated: true,
+      access,
+      user: { userId: session.userId, username: session.username },
+      member: null,
+      members: [],
+    }, 403, request, env);
+  }
+
+  const members = access === "self"
+    ? (member ? [member] : [])
+    : await selectAllMembers(env);
+
+  return json({
+    authenticated: true,
+    access,
+    canEdit: access === "admin",
+    user: { userId: session.userId, username: session.username },
+    member,
+    members,
   }, 200, request, env);
 }
 
@@ -642,8 +682,14 @@ async function importMembers(request, env) {
 
 async function listMembers(request, env) {
   await requireAdminSession(request, env);
+  const members = await selectAllMembers(env);
+  return json({ ok: true, members }, 200, request, env);
+}
+
+async function selectAllMembers(env) {
   const result = await env.DB.prepare(`
     SELECT
+      id,
       member_no,
       committee_type,
       name,
@@ -667,7 +713,51 @@ async function listMembers(request, env) {
     FROM members
     ORDER BY student_id
   `).all();
-  return json({ ok: true, members: result.results ?? [] }, 200, request, env);
+  return result.results ?? [];
+}
+
+async function findMemberByDiscordUserId(discordUserId, env) {
+  if (!discordUserId) return null;
+  return env.DB.prepare(`
+    SELECT
+      id,
+      member_no,
+      committee_type,
+      name,
+      kana,
+      line_name,
+      student_id,
+      email,
+      grade,
+      faculty,
+      department,
+      position,
+      team,
+      meeting_welcome,
+      meeting_1,
+      meeting_2,
+      meeting_3,
+      meeting_4,
+      meeting_5,
+      discord_user_id,
+      verified_at
+    FROM members
+    WHERE discord_user_id = ?
+  `).bind(discordUserId).first();
+}
+
+function getAccessLevel(session, member, env) {
+  if (isAdminDiscordUser(session.userId, env) || String(member?.position ?? "").includes("部長")) {
+    return "admin";
+  }
+  const committeeType = String(member?.committee_type ?? "");
+  if (committeeType === "RC" || committeeType === "SV") {
+    return "staff";
+  }
+  if (committeeType === "JC") {
+    return "self";
+  }
+  return "none";
 }
 
 async function sendAbsenceDirectMessages(request, env) {
@@ -755,13 +845,21 @@ async function requireAdminSession(request, env) {
   if (!session) {
     throw httpError("not_authenticated", 401);
   }
-  if (!isAdminDiscordUser(session.userId, env)) {
+  if (!await isAdminSession(session, env)) {
     throw httpError("admin_required", 403);
   }
   if (!env.DB) {
     throw new Error("Missing required DB binding");
   }
   return session;
+}
+
+async function isAdminSession(session, env) {
+  if (isAdminDiscordUser(session.userId, env)) {
+    return true;
+  }
+  const member = await findMemberByDiscordUserId(session.userId, env);
+  return String(member?.position ?? "").includes("部長");
 }
 
 function isAdminDiscordUser(userId, env) {

@@ -66,11 +66,17 @@ const sampleCsv = `氏名,フリガナ,LINEの名前,学籍番号,大学メー�
 広報 次郎,コウホウ ジロウ,Jiro,525A2003,jiro@example.ac.jp,JC,,ポスター課,未認証,欠席,出席,出席,未定,未定,未定`;
 
 let members = [];
+let appAccess = "guest";
+let currentMemberNo = "";
+let canEditMembers = false;
 
 const $ = (id) => document.getElementById(id);
 const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
 
 const elements = {
+  mainNav: $("mainNav"),
+  appLoginLink: $("appLoginLink"),
+  loginMessage: $("loginMessage"),
   csvFileInput: $("csvFileInput"),
   loadSampleButton: $("loadSampleButton"),
   loadMembersButton: $("loadMembersButton"),
@@ -414,13 +420,16 @@ function assignmentGridForList(assignments = []) {
 
 function memberToRow(member) {
   const assignments = assignmentGridForList(getAssignmentsFromTeam(member.team));
+  const actions = canEditMembers
+    ? `<button class="ghost" onclick="showProfileByNumber('${escapeHtml(member.memberNo)}')">詳細</button> <button class="secondary" onclick="editMember('${escapeHtml(member.memberNo)}')">編集</button> <button class="danger" onclick="deleteMember('${escapeHtml(member.memberNo)}')">削除</button>`
+    : `<button class="ghost" onclick="showProfileByNumber('${escapeHtml(member.memberNo)}')">詳細</button>`;
   return `<tr>
     <td>${escapeHtml(member.memberNo)}</td>
     <td>${escapeHtml(member.name)}</td>
     <td>${escapeHtml(member.kana || "-")}</td>
     <td>${escapeHtml(member.studentId)}</td>
     <td>${assignments}</td>
-    <td><button class="ghost" onclick="showProfileByNumber('${escapeHtml(member.memberNo)}')">詳細</button> <button class="secondary" onclick="editMember('${escapeHtml(member.memberNo)}')">編集</button> <button class="danger" onclick="deleteMember('${escapeHtml(member.memberNo)}')">削除</button></td>
+    <td>${actions}</td>
   </tr>`;
 }
 
@@ -539,10 +548,10 @@ function profileHtml(member) {
           <div class="id-card-attendance-meta">LINE名：${escapeHtml(member.lineName || "-")}</div>
           <div class="id-card-attendance-meta">${escapeHtml(member.email || "-")}</div>
         </div>
-        <div class="id-card-action-buttons">
+        ${canEditMembers ? `<div class="id-card-action-buttons">
           <button class="secondary" onclick="editMember('${escapeHtml(member.memberNo)}')">編集</button>
           <button class="danger" onclick="deleteMember('${escapeHtml(member.memberNo)}')">削除</button>
-        </div>
+        </div>` : ""}
       </div>
     </article>
   </div>
@@ -578,6 +587,7 @@ function showProfileByNumber(memberNo) {
 }
 
 function editMember(memberNo) {
+  if (!canEditMembers) return;
   const member = members.find((entry) => entry.memberNo === memberNo);
   if (!member) return;
   switchView("register");
@@ -600,6 +610,7 @@ function editMember(memberNo) {
 }
 
 function deleteMember(memberNo) {
+  if (!canEditMembers) return;
   const member = members.find((entry) => entry.memberNo === memberNo);
   if (!member) return;
   if (!confirm(`${member.memberNo} ${member.name} さんを削除しますか？`)) return;
@@ -622,13 +633,46 @@ function renderAll() {
   updateDataSourceDisplay();
 }
 
+function getDefaultViewForAccess() {
+  if (appAccess === "admin") return "register";
+  if (appAccess === "staff") return "list";
+  if (appAccess === "self") return "search";
+  return "login";
+}
+
+function isViewAllowed(view) {
+  if (view === "login") return appAccess === "guest" || appAccess === "none";
+  if (appAccess === "admin") return ["register", "list", "search", "settings"].includes(view);
+  if (appAccess === "staff") return ["list", "search"].includes(view);
+  if (appAccess === "self") return view === "search";
+  return false;
+}
+
+function applyAccessUi() {
+  canEditMembers = appAccess === "admin";
+  document.body.dataset.access = appAccess;
+  document.querySelectorAll(".tab").forEach((tab) => {
+    const allowed = isViewAllowed(tab.dataset.view);
+    tab.hidden = !allowed;
+    tab.disabled = !allowed;
+  });
+  if (elements.mainNav) {
+    elements.mainNav.hidden = appAccess === "guest" || appAccess === "none" || appAccess === "self";
+  }
+  document.querySelector(".search-control-panel")?.classList.toggle("hidden", appAccess === "self");
+  document.querySelectorAll("#view-list .list-control-panel").forEach((panel) => {
+    panel.classList.toggle("hidden", appAccess === "self");
+  });
+}
+
 function switchView(view) {
+  const targetView = isViewAllowed(view) ? view : getDefaultViewForAccess();
   document.querySelectorAll(".view").forEach((target) => target.classList.add("hidden"));
-  $(`view-${view}`)?.classList.remove("hidden");
-  document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
-  if (view === "list") renderList();
-  if (view === "search") renderAllProfiles();
-  if (view === "settings") renderManagementTable();
+  $(`view-${targetView}`)?.classList.remove("hidden");
+  document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === targetView));
+  if (targetView === "list") renderList();
+  if (targetView === "search") renderAllProfiles();
+  if (targetView === "settings") renderManagementTable();
   const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
   const mainTop = document.querySelector("main.wrap")?.offsetTop || 0;
   window.scrollTo({ top: Math.max(0, mainTop - headerHeight - 8), behavior: "auto" });
@@ -716,6 +760,64 @@ async function loadMembersFromDatabase() {
   } finally {
     elements.loadMembersButton.disabled = false;
     elements.loadMembersButton.textContent = "DB読込";
+  }
+}
+
+function setLoginMessage(text) {
+  if (elements.loginMessage) elements.loginMessage.textContent = text;
+}
+
+async function loadAppBootstrap() {
+  if (!sGateBaseUrl) {
+    appAccess = "guest";
+    members = [];
+    applyAccessUi();
+    setLoginMessage("config.js に sGateBaseUrl を設定してください。");
+    switchView("login");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/app/bootstrap`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const data = await response.json();
+    if (!data.authenticated) {
+      appAccess = "guest";
+      members = [];
+      applyAccessUi();
+      setLoginMessage("Discordログイン後、権限に応じて画面を表示します。");
+      switchView("login");
+      return;
+    }
+    if (!response.ok || data.access === "none") {
+      appAccess = "none";
+      members = [];
+      applyAccessUi();
+      setLoginMessage("ログイン済みですが、JAMSを閲覧できる部員データが見つかりません。S-GATE認証が完了しているか確認してください。");
+      switchView("login");
+      return;
+    }
+
+    appAccess = data.access;
+    currentMemberNo = data.member?.member_no ?? "";
+    canEditMembers = Boolean(data.canEdit);
+    members = makeMembersFromDatabaseRows(data.members ?? []);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
+    localStorage.setItem(DATA_SOURCE_KEY, appAccess === "self" ? "本人データ" : "D1データベース");
+    applyAccessUi();
+    renderAll();
+    if (appAccess === "admin") {
+      await refreshAdminStatus();
+    }
+    switchView(getDefaultViewForAccess());
+  } catch (error) {
+    appAccess = "guest";
+    members = [];
+    applyAccessUi();
+    setLoginMessage(`ログイン状態を確認できませんでした: ${error.message}`);
+    switchView("login");
   }
 }
 
@@ -902,14 +1004,20 @@ window.editMember = editMember;
 window.deleteMember = deleteMember;
 
 if (sGateBaseUrl) {
-  elements.discordLoginLink.href = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/login`;
-  elements.discordLoginLink.removeAttribute("aria-disabled");
+  const loginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/login`;
+  if (elements.discordLoginLink) {
+    elements.discordLoginLink.href = loginUrl;
+    elements.discordLoginLink.removeAttribute("aria-disabled");
+  }
+  if (elements.appLoginLink) {
+    elements.appLoginLink.href = loginUrl;
+    elements.appLoginLink.removeAttribute("aria-disabled");
+  }
 } else {
-  elements.discordLoginLink.title = "config.js に sGateBaseUrl を設定してください。";
+  if (elements.discordLoginLink) elements.discordLoginLink.title = "config.js に sGateBaseUrl を設定してください。";
+  if (elements.appLoginLink) elements.appLoginLink.title = "config.js に sGateBaseUrl を設定してください。";
 }
 
-loadStoredMembers();
 wireEvents();
 updateDerivedPreview();
-renderAll();
-refreshAdminStatus();
+loadAppBootstrap();

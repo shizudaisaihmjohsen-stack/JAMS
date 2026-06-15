@@ -5510,6 +5510,23 @@
       white-space: nowrap;
     }
 
+    #view-login .login-card {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    #view-login .login-panel {
+      display: grid;
+      gap: 16px;
+      text-align: center;
+    }
+
+    #view-login .login-panel .buttons {
+      justify-content: center;
+      margin-top: 0;
+      padding-top: 0;
+    }
+
     #view-settings .management-dm-panel {
       margin: 18px 0 !important;
       padding: 20px !important;

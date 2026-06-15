@@ -26,7 +26,23 @@
     </header>
 
     <main class="wrap">
-      <section id="view-register" class="view">
+      <section id="view-login" class="view">
+        <div class="grid">
+          <div class="card login-card">
+            <p class="section-en">Login</p>
+            <h2>ログイン</h2>
+            <div class="screen-control-panel login-panel">
+              <p>JAMSを利用するには、Discordアカウントでログインしてください。</p>
+              <div class="buttons">
+                <a id="appLoginLink" class="primary" href="#" aria-disabled="true">Discordでログイン</a>
+              </div>
+              <div id="loginMessage" class="hint">ログイン後、権限に応じて表示できる画面が切り替わります。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-register" class="view hidden">
         <div class="grid">
           <div class="card">
             <p class="section-en">Entry</p>
