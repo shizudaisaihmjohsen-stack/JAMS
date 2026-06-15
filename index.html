@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>JAMS | 情報宣伝部 部員認証・管理システム</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -22,7 +25,6 @@
           <button class="tab" data-view="search"><span class="tab-en" aria-label="Search"><i>S</i><i>E</i><i>A</i><i>R</i><i>C</i><i>H</i></span>検索</button>
           <button class="tab" data-view="settings"><span class="tab-en" aria-label="Data"><i>D</i><i>A</i><i>T</i><i>A</i></span>管理</button>
         </nav>
-        <button id="logoutButton" class="logout-button" type="button" hidden>ログアウト</button>
       </div>
     </header>
 
@@ -217,15 +219,14 @@
               <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
             </div>
             <div class="buttons management-primary-actions">
-              <a id="discordLoginLink" class="primary" href="#" aria-disabled="true">管理者認証</a>
               <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
-              <button class="primary" type="button" id="saveMembersButton" disabled>DB保存</button>
+              <button class="secondary" type="button" id="saveMembersButton" disabled>DB保存</button>
               <button class="secondary" type="button" id="exportButton">CSV出力</button>
+              <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
             </div>
             <div class="buttons management-secondary-actions">
               <label class="secondary" for="csvFileInput">CSVを読み込む</label>
               <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
-              <button class="secondary" type="button" id="loadSampleButton">サンプル読込</button>
               <button class="danger" type="button" id="deleteAllBtn">全データ削除</button>
             </div>
             <div id="dataMessage"></div>
