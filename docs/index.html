@@ -224,6 +224,35 @@
             </dl>
           </div>
 
+          <div class="screen-control-panel management-dm-panel">
+            <div class="management-dm-head">
+              <div>
+                <p class="panel-kicker">Discord DM</p>
+                <h3>全体会未参加者への一括連絡</h3>
+              </div>
+              <div class="control-field">
+                <label for="dmMeetingSelect">対象の全体会</label>
+                <select id="dmMeetingSelect">
+                  <option value="新歓">新歓</option>
+                  <option value="第1回">第1回</option>
+                  <option value="第2回">第2回</option>
+                  <option value="第3回">第3回</option>
+                  <option value="第4回">第4回</option>
+                  <option value="第5回">第5回</option>
+                </select>
+              </div>
+            </div>
+            <label for="dmMessage">送信メッセージ</label>
+            <textarea id="dmMessage" rows="6">情報宣伝部です。
+全体会の参加状況について確認したいことがあります。
+このDMを確認したら、部長または担当者まで返信してください。</textarea>
+            <div class="buttons management-dm-actions">
+              <button class="secondary" type="button" id="previewDmButton">対象確認</button>
+              <button class="danger" type="button" id="sendDmButton" disabled>未参加者へDM送信</button>
+            </div>
+            <div id="dmPreview" class="hint">対象確認を押すと、送信予定人数を確認できます。</div>
+          </div>
+
           <div class="table-wrap">
             <table>
               <thead>

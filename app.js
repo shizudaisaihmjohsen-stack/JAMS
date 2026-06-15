@@ -77,6 +77,8 @@ const elements = {
   exportButton: $("exportButton"),
   saveMembersButton: $("saveMembersButton"),
   discordLoginLink: $("discordLoginLink"),
+  previewDmButton: $("previewDmButton"),
+  sendDmButton: $("sendDmButton"),
   adminStatusText: $("adminStatusText"),
   tableBody: $("memberTableBody"),
   totalCount: $("totalCount"),
@@ -717,9 +719,70 @@ async function loadMembersFromDatabase() {
   }
 }
 
+function getDmTargetPreview() {
+  const meeting = $("dmMeetingSelect")?.value || MEETING_LABELS[0];
+  const absentMembers = members.filter((member) => member.meetings?.[meeting] !== "出席");
+  const sendableMembers = absentMembers.filter((member) => member.discordUserId);
+  const missingDiscordMembers = absentMembers.filter((member) => !member.discordUserId);
+  return { meeting, absentMembers, sendableMembers, missingDiscordMembers };
+}
+
+function previewAbsenceDmTargets() {
+  const { meeting, absentMembers, sendableMembers, missingDiscordMembers } = getDmTargetPreview();
+  const missingText = missingDiscordMembers.length
+    ? ` Discord ID未取得のため送信できない部員が${missingDiscordMembers.length}人います。`
+    : "";
+  const names = sendableMembers.slice(0, 8).map((member) => `${member.memberNo} ${member.name}`).join("、");
+  $("dmPreview").textContent = `${meeting}の未参加者は${absentMembers.length}人、DM送信対象は${sendableMembers.length}人です。${missingText}${names ? ` 送信対象例：${names}` : ""}`;
+}
+
+async function sendAbsenceDm() {
+  if (!sGateBaseUrl) {
+    showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
+    return;
+  }
+  const meeting = $("dmMeetingSelect")?.value || MEETING_LABELS[0];
+  const message = normalize($("dmMessage")?.value);
+  if (!message) {
+    $("dmPreview").textContent = "送信メッセージを入力してください。";
+    return;
+  }
+  const { sendableMembers, missingDiscordMembers } = getDmTargetPreview();
+  const confirmText = [
+    `${meeting}の未参加者へDiscord DMを送信します。`,
+    `画面上の送信対象: ${sendableMembers.length}人`,
+    missingDiscordMembers.length ? `Discord ID未取得: ${missingDiscordMembers.length}人` : "",
+    "",
+    "送信後は取り消せません。実行しますか？",
+  ].filter(Boolean).join("\n");
+  if (!confirm(confirmText)) return;
+
+  elements.sendDmButton.disabled = true;
+  elements.sendDmButton.textContent = "送信中";
+  $("dmPreview").textContent = "DMを送信しています。画面を閉じずにお待ちください。";
+  try {
+    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/meetings/absentees/dm`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meeting, message }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || data.error || "DM送信に失敗しました。");
+    $("dmPreview").textContent = `${data.meeting}の未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`;
+  } catch (error) {
+    $("dmPreview").textContent = `DM送信エラー: ${error.message}`;
+  } finally {
+    elements.sendDmButton.disabled = false;
+    elements.sendDmButton.textContent = "未参加者へDM送信";
+    await refreshAdminStatus();
+  }
+}
+
 async function refreshAdminStatus() {
   if (!sGateBaseUrl) {
     elements.adminStatusText.textContent = "config.js に sGateBaseUrl を設定すると、S-GATE管理者状態を確認できます。";
+    if (elements.sendDmButton) elements.sendDmButton.disabled = true;
     return;
   }
 
@@ -729,6 +792,9 @@ async function refreshAdminStatus() {
     if (!response.ok) throw new Error(data.error || "admin_status_failed");
     if (!data.authenticated) {
       elements.adminStatusText.textContent = "Discord認証後、管理者IDに登録されている場合のみDB保存・読込できます。";
+      elements.saveMembersButton.disabled = true;
+      elements.loadMembersButton.disabled = true;
+      if (elements.sendDmButton) elements.sendDmButton.disabled = true;
       return;
     }
     elements.adminStatusText.textContent = data.admin
@@ -736,8 +802,12 @@ async function refreshAdminStatus() {
       : `${data.username ?? "Discordユーザー"} としてログイン中ですが、管理者権限がありません。`;
     elements.saveMembersButton.disabled = !data.admin;
     elements.loadMembersButton.disabled = !data.admin;
+    if (elements.sendDmButton) elements.sendDmButton.disabled = !data.admin;
   } catch (error) {
     elements.adminStatusText.textContent = `S-GATE管理者状態を確認できませんでした: ${error.message}`;
+    elements.saveMembersButton.disabled = true;
+    elements.loadMembersButton.disabled = true;
+    if (elements.sendDmButton) elements.sendDmButton.disabled = true;
   }
 }
 
@@ -816,6 +886,9 @@ function wireEvents() {
   elements.exportButton?.addEventListener("click", exportCsv);
   elements.saveMembersButton?.addEventListener("click", saveMembersToDatabase);
   elements.loadMembersButton?.addEventListener("click", loadMembersFromDatabase);
+  elements.previewDmButton?.addEventListener("click", previewAbsenceDmTargets);
+  elements.sendDmButton?.addEventListener("click", sendAbsenceDm);
+  $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
   $("deleteAllBtn")?.addEventListener("click", () => {
     if (!confirm("ブラウザ上の部員データをすべて削除しますか？")) return;
     saveMembers([]);

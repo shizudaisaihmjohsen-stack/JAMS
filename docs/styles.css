@@ -5510,6 +5510,63 @@
       white-space: nowrap;
     }
 
+    #view-settings .management-dm-panel {
+      margin: 18px 0 !important;
+      padding: 20px !important;
+      display: grid;
+      gap: 12px;
+      border-color: rgba(242, 107, 134, .28) !important;
+      background: rgba(255, 250, 252, .84) !important;
+    }
+
+    #view-settings .management-dm-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+      gap: 16px;
+      align-items: end;
+    }
+
+    #view-settings .panel-kicker {
+      margin: 0 0 4px;
+      color: var(--blue-deep);
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+    }
+
+    #view-settings .management-dm-panel h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.45;
+      font-weight: 500;
+      letter-spacing: .08em;
+    }
+
+    #view-settings .management-dm-panel textarea {
+      width: 100%;
+      min-height: 132px;
+      resize: vertical;
+      line-height: 1.7;
+    }
+
+    #view-settings .management-dm-actions {
+      justify-content: flex-end !important;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+
+    #view-settings #dmPreview {
+      line-height: 1.65;
+    }
+
+    @media(max-width: 760px) {
+      #view-settings .management-dm-head {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media(max-width: 760px) {
       .brand-mark {
         width: 54px !important;

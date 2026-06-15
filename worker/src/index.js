@@ -21,6 +21,15 @@ const roleNameToEnvKey = {
   SNS: "DISCORD_ROLE_SNS",
 };
 
+const meetingNameToColumn = {
+  "新歓": "meeting_welcome",
+  "第1回": "meeting_1",
+  "第2回": "meeting_2",
+  "第3回": "meeting_3",
+  "第4回": "meeting_4",
+  "第5回": "meeting_5",
+};
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -91,6 +100,10 @@ async function route(request, env, ctx) {
 
   if (request.method === "GET" && url.pathname === "/api/admin/members") {
     return listMembers(request, env);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/admin/meetings/absentees/dm") {
+    return sendAbsenceDirectMessages(request, env);
   }
 
   return json({ error: "not_found" }, 404, request, env);
@@ -657,6 +670,86 @@ async function listMembers(request, env) {
   return json({ ok: true, members: result.results ?? [] }, 200, request, env);
 }
 
+async function sendAbsenceDirectMessages(request, env) {
+  const session = await requireAdminSession(request, env);
+  if (!env.DISCORD_BOT_TOKEN) {
+    throw new Error("Missing required env: DISCORD_BOT_TOKEN");
+  }
+
+  const body = await request.json();
+  const meeting = String(body.meeting ?? "").trim();
+  const message = String(body.message ?? "").trim();
+  const meetingColumn = meetingNameToColumn[meeting];
+  if (!meetingColumn) {
+    return json({ error: "invalid_meeting" }, 400, request, env);
+  }
+  if (!message || message.length > 1800) {
+    return json({ error: "invalid_message", message: "メッセージは1文字以上1800文字以内で入力してください。" }, 400, request, env);
+  }
+
+  const result = await env.DB.prepare(`
+    SELECT member_no, name, discord_user_id, ${meetingColumn} AS meeting_status
+    FROM members
+    WHERE COALESCE(${meetingColumn}, '') <> '出席'
+    ORDER BY student_id
+  `).all();
+  const absentMembers = result.results ?? [];
+  const sendableMembers = absentMembers.filter((member) => String(member.discord_user_id ?? "").trim());
+  const skippedNoDiscord = absentMembers.length - sendableMembers.length;
+  if (!sendableMembers.length) {
+    return json({
+      ok: true,
+      meeting,
+      targeted: absentMembers.length,
+      sent: 0,
+      failed: 0,
+      skippedNoDiscord,
+      results: [],
+      sentBy: session.userId,
+    }, 200, request, env);
+  }
+
+  const sendResults = [];
+  for (const member of sendableMembers) {
+    try {
+      const sentMessage = await sendDirectMessage(
+        member.discord_user_id,
+        buildAbsenceDmMessage(meeting, message),
+        env,
+      );
+      sendResults.push({
+        memberNo: member.member_no,
+        name: member.name,
+        discordUserId: member.discord_user_id,
+        ok: true,
+        messageId: sentMessage?.id ?? "",
+      });
+    } catch (error) {
+      console.warn(`Failed to send absence DM to ${member.member_no}: ${error.message}`);
+      sendResults.push({
+        memberNo: member.member_no,
+        name: member.name,
+        discordUserId: member.discord_user_id,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const sent = sendResults.filter((entry) => entry.ok).length;
+  const failed = sendResults.length - sent;
+  return json({
+    ok: failed === 0,
+    meeting,
+    targeted: absentMembers.length,
+    sent,
+    failed,
+    skippedNoDiscord,
+    results: sendResults,
+    sentBy: session.userId,
+  }, 200, request, env);
+}
+
 async function requireAdminSession(request, env) {
   const session = await readSignedSession(request, env);
   if (!session) {
@@ -1012,6 +1105,32 @@ async function removeRole(userId, roleId, env, reason) {
     method: "DELETE",
     headers: botHeaders(env, reason),
   }, [204, 404]);
+}
+
+async function sendDirectMessage(userId, content, env) {
+  const channel = await discordFetch("/users/@me/channels", {
+    method: "POST",
+    headers: botHeaders(env),
+    body: JSON.stringify({ recipient_id: userId }),
+  }, [200]);
+
+  return discordFetch(`/channels/${channel.id}/messages`, {
+    method: "POST",
+    headers: botHeaders(env),
+    body: JSON.stringify({
+      content,
+      allowed_mentions: { parse: [] },
+    }),
+  }, [200]);
+}
+
+function buildAbsenceDmMessage(meeting, message) {
+  return [
+    `【JAMS / S-GATE 全体会連絡】`,
+    `対象: ${meeting}`,
+    "",
+    message,
+  ].join("\n");
 }
 
 async function discordFetch(path, init = {}, okStatuses = [200]) {
