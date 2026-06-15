@@ -33,16 +33,11 @@
         <div class="card login-card">
           <p class="section-en">LOGIN</p>
           <h2>JAMSへログイン</h2>
-          <p class="login-lead">Discordアカウントで認証すると、権限に応じた管理画面を表示します。</p>
           <div class="screen-control-panel login-panel">
             <div class="login-action-box">
-              <div class="login-action-copy">
-                <span class="login-action-kicker">S-GATE</span>
-                <strong>Discord認証</strong>
-              </div>
               <a id="appLoginLink" class="primary" href="#" aria-disabled="true">Discordでログイン</a>
             </div>
-            <div id="loginMessage" class="hint">ログイン状態を確認しています。</div>
+            <div id="loginMessage" class="hint" hidden></div>
           </div>
         </div>
       </section>
@@ -106,7 +101,6 @@
                       <label class="check"><input type="checkbox" name="assignment" value="マスコット課"> マスコット課</label>
                       <label class="check"><input type="checkbox" name="assignment" value="SNS広報課"> SNS広報課</label>
                     </div>
-                    <div class="hint">複数配属の場合は、該当する課をすべて選択してください。</div>
                   </div>
 
                   <div>
@@ -270,7 +264,7 @@
               <button class="secondary" type="button" id="previewDmButton">対象確認</button>
               <button class="danger" type="button" id="sendDmButton" disabled>未参加者へDM送信</button>
             </div>
-            <div id="dmPreview" class="hint">対象確認を押すと、送信予定人数を確認できます。</div>
+            <div id="dmPreview" class="hint" hidden></div>
           </div>
 
           <div class="table-wrap">

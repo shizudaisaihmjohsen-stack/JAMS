@@ -26,7 +26,7 @@
       <section class="card sgate-verify-card">
         <p class="section-en">S-GATE</p>
         <h2 id="resultTitle">認証コードを入力してください</h2>
-        <p id="resultText" class="sgate-lead">大学メールに届いた6桁の認証コードを入力すると、Discordロールを更新します。</p>
+        <p id="resultText" class="sgate-lead" hidden></p>
 
         <form id="verificationForm" class="verify-form">
           <label for="verificationCodeInput">認証コード</label>
@@ -53,6 +53,7 @@
         form.hidden = true;
         document.querySelector("#resultTitle").textContent = "認証リンクが正しくありません";
         document.querySelector("#resultText").textContent = "Discordの /auth から表示されたリンクを開き直してください。";
+        document.querySelector("#resultText").hidden = false;
       }
 
       form.addEventListener("submit", async (event) => {
@@ -74,6 +75,7 @@
           }
           document.querySelector("#resultTitle").textContent = "S-GATE認証が完了しました";
           document.querySelector("#resultText").textContent = `${data.member.name} さんを認証しました。Discordロールを更新しました。`;
+          document.querySelector("#resultText").hidden = false;
           statusText.textContent = `付与ロール: ${data.roles.join(" / ")}`;
         } catch (error) {
           statusText.textContent = `認証できませんでした: ${error.message}`;

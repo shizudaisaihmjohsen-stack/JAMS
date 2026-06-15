@@ -1259,7 +1259,9 @@
   }
 
   .buttons a.primary,
-  .buttons label.secondary {
+  .buttons label.secondary,
+  a.primary,
+  a.secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5548,62 +5550,38 @@
     }
 
     #view-login .login-card h2 {
-      margin-bottom: 14px;
-    }
-
-    #view-login .login-lead {
-      width: min(560px, 100%);
-      margin: 0 auto 28px;
-      color: var(--muted);
-      line-height: 1.85;
+      margin-bottom: 28px;
     }
 
     #view-login .login-panel {
-      width: min(520px, 100%);
+      width: min(420px, 100%);
       margin: 0 auto;
       display: grid;
-      gap: 16px;
+      gap: 14px;
       text-align: center;
       padding: 18px 20px !important;
     }
 
     #view-login .login-action-box {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 16px;
+      display: flex;
+      justify-content: center;
       align-items: center;
-      text-align: left;
-    }
-
-    #view-login .login-action-copy {
-      display: grid;
-      gap: 2px;
-      min-width: 0;
-    }
-
-    #view-login .login-action-kicker {
-      color: var(--blue-deep);
-      font-size: 11px;
-      line-height: 1.2;
-      letter-spacing: .22em;
-    }
-
-    #view-login .login-action-copy strong {
-      color: var(--ink);
-      font-size: 18px;
-      line-height: 1.45;
-      font-weight: 700;
-      letter-spacing: .08em;
     }
 
     #view-login #appLoginLink {
-      min-height: 44px;
-      padding: 0 22px;
+      min-width: 220px;
+      min-height: 46px;
+      padding: 0 26px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       text-decoration: none;
       white-space: nowrap;
+      background: var(--blue-deep) !important;
+      color: #fff !important;
+      border: 0 !important;
+      border-radius: 4px;
+      box-shadow: 0 8px 20px rgba(47, 127, 182, .24);
     }
 
     #view-login #loginMessage {
@@ -5613,10 +5591,13 @@
       line-height: 1.65;
     }
 
+    #view-login #loginMessage[hidden] {
+      display: none !important;
+    }
+
     @media(max-width: 640px) {
       #view-login .login-action-box {
-        grid-template-columns: 1fr;
-        text-align: center;
+        width: 100%;
       }
 
       #view-login #appLoginLink {

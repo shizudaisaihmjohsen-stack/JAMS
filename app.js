@@ -808,7 +808,9 @@ async function loadMembersFromDatabase() {
 }
 
 function setLoginMessage(text) {
-  if (elements.loginMessage) elements.loginMessage.textContent = text;
+  if (!elements.loginMessage) return;
+  elements.loginMessage.textContent = text;
+  elements.loginMessage.hidden = !text;
 }
 
 async function loadAppBootstrap() {
@@ -831,7 +833,7 @@ async function loadAppBootstrap() {
       appAccess = "guest";
       members = [];
       applyAccessUi();
-      setLoginMessage("Discordログイン後、権限に応じて画面を表示します。");
+      setLoginMessage("");
       switchView("login");
       return;
     }
@@ -879,6 +881,7 @@ function previewAbsenceDmTargets() {
     ? ` Discord ID未取得のため送信できない部員が${missingDiscordMembers.length}人います。`
     : "";
   const names = sendableMembers.slice(0, 8).map((member) => `${member.memberNo} ${member.name}`).join("、");
+  $("dmPreview").hidden = false;
   $("dmPreview").textContent = `${meeting}の未参加者は${absentMembers.length}人、DM送信対象は${sendableMembers.length}人です。${missingText}${names ? ` 送信対象例：${names}` : ""}`;
 }
 
@@ -891,6 +894,7 @@ async function sendAbsenceDm() {
   const message = normalize($("dmMessage")?.value);
   if (!message) {
     $("dmPreview").textContent = "送信メッセージを入力してください。";
+    $("dmPreview").hidden = false;
     return;
   }
   const { sendableMembers, missingDiscordMembers } = getDmTargetPreview();
@@ -906,6 +910,7 @@ async function sendAbsenceDm() {
   elements.sendDmButton.disabled = true;
   elements.sendDmButton.textContent = "送信中";
   $("dmPreview").textContent = "DMを送信しています。画面を閉じずにお待ちください。";
+  $("dmPreview").hidden = false;
   try {
     const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/meetings/absentees/dm`, {
       method: "POST",

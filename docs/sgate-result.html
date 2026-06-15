@@ -11,7 +11,7 @@
       <section class="panel result-panel">
         <p class="eyebrow">S-GATE</p>
         <h1 id="resultTitle">認証結果を確認しています</h1>
-        <p id="resultText">Discord認証の結果を読み込んでいます。</p>
+        <p id="resultText" hidden></p>
         <form id="emailVerificationForm" class="verify-form" hidden>
           <label id="emailField">
             <span>大学メールアドレス</span>
@@ -41,16 +41,17 @@
       const token = params.get("token");
       const isTokenVerification = Boolean(token) || mode === "token";
       const messages = {
-        login_ok: ["Discord認証が完了しました", "サーバー参加と未認証ロールの付与を試行しました。次に部員照合を行うと、認証済みロールへ切り替わります。"],
+        login_ok: ["Discord認証が完了しました", ""],
         state_error: ["認証を完了できませんでした", "安全確認用のstateが一致しませんでした。もう一度Discord認証を実行してください。"],
         discord_error: ["Discord認証がキャンセルされました", "Discord側で認証が完了しませんでした。"],
-        error: ["認証処理でエラーが発生しました", "時間を置いて再度お試しください。"]
+        error: ["認証処理でエラーが発生しました", ""]
       };
       const [title, text] = isTokenVerification
-        ? ["認証コードを入力してください", "大学メールに届いた6桁の認証コードを入力すると、Discordロールを更新します。"]
+        ? ["認証コードを入力してください", ""]
         : (messages[status] ?? messages.error);
       document.querySelector("#resultTitle").textContent = title;
       document.querySelector("#resultText").textContent = text;
+      document.querySelector("#resultText").hidden = !text;
       const form = document.querySelector("#emailVerificationForm");
       const statusText = document.querySelector("#emailVerificationStatus");
       const emailInput = document.querySelector("#universityEmailInput");
@@ -68,10 +69,12 @@
       } else if (isTokenVerification && !token) {
         document.querySelector("#resultTitle").textContent = "認証リンクが正しくありません";
         document.querySelector("#resultText").textContent = "Discordの /auth から表示されたリンクを開き直してください。";
+        document.querySelector("#resultText").hidden = false;
       } else if (status === "login_ok" && sGateBaseUrl) {
         form.hidden = false;
       } else if (status === "login_ok") {
         document.querySelector("#resultText").textContent = "Discord認証は完了しています。大学メール認証を使うには config.js に sGateBaseUrl を設定してください。";
+        document.querySelector("#resultText").hidden = false;
       }
 
       async function postJson(path, payload) {
