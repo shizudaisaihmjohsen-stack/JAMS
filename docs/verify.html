@@ -4,23 +4,40 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>S-GATE 認証コード入力 | JAMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="result-page">
-      <section class="panel result-panel">
-        <p class="eyebrow">S-GATE</p>
-        <h1 id="resultTitle">認証コードを入力してください</h1>
-        <p id="resultText">大学メールに届いた6桁の認証コードを入力すると、Discordロールを更新します。</p>
+    <header class="site-header">
+      <div class="wrap site-header-inner">
+        <div class="brand">
+          <div class="brand-mark"><img src="assets/hm-logo-transparent.png" alt="浜松静大祭実行委員会"></div>
+          <div>
+            <div class="brand-kicker">浜松静大祭実行委員会</div>
+            <h1>情報宣伝部 部員認証・管理システム</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap sgate-verify-page">
+      <section class="card sgate-verify-card">
+        <p class="section-en">S-GATE</p>
+        <h2 id="resultTitle">認証コードを入力してください</h2>
+        <p id="resultText" class="sgate-lead">大学メールに届いた6桁の認証コードを入力すると、Discordロールを更新します。</p>
+
         <form id="verificationForm" class="verify-form">
-          <label>
-            <span>認証コード</span>
-            <input id="verificationCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required>
-          </label>
-          <button type="submit">認証を完了</button>
+          <label for="verificationCodeInput">認証コード</label>
+          <input id="verificationCodeInput" class="verify-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required>
+          <div class="buttons verify-actions">
+            <button class="primary" type="submit">認証を完了</button>
+            <a class="secondary sgate-back-link" href="index.html">JAMSに戻る</a>
+          </div>
           <p id="verificationStatus" class="form-status"></p>
         </form>
-        <a class="button-link" href="index.html">JAMSに戻る</a>
+        <a class="sgate-return-link" href="index.html">JAMSに戻る</a>
       </section>
     </main>
     <script src="config.js"></script>

@@ -5636,6 +5636,109 @@
       line-height: 1.65;
     }
 
+    .sgate-verify-page {
+      padding-top: clamp(26px, 4vw, 48px);
+      padding-bottom: 56px;
+    }
+
+    .sgate-verify-card {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      text-align: center;
+      padding: clamp(32px, 5vw, 52px) clamp(24px, 5vw, 56px) !important;
+    }
+
+    .sgate-verify-card .section-en {
+      margin-bottom: 10px;
+    }
+
+    .sgate-verify-card h2 {
+      margin-bottom: 14px;
+    }
+
+    .sgate-lead {
+      width: min(560px, 100%);
+      margin: 0 auto 28px;
+      color: var(--muted);
+      line-height: 1.85;
+    }
+
+    .verify-form {
+      width: min(480px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+      text-align: left;
+    }
+
+    .verify-form[hidden] {
+      display: none !important;
+    }
+
+    .verify-form label {
+      color: var(--blue-deep);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .verify-code-input {
+      width: 100%;
+      height: 58px;
+      text-align: center;
+      font-size: 26px;
+      letter-spacing: .28em;
+      font-weight: 700;
+      font-family: "Inter", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", "YuGothic", "Meiryo", system-ui, sans-serif;
+    }
+
+    .verify-actions {
+      justify-content: center;
+      margin-top: 8px;
+      padding-top: 0;
+    }
+
+    .verify-actions button,
+    .verify-actions a {
+      min-width: 148px;
+      min-height: 44px;
+      text-decoration: none;
+    }
+
+    .sgate-back-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sgate-return-link {
+      display: none;
+      margin-top: 24px;
+      color: var(--blue-deep);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .verify-form[hidden] + .sgate-return-link {
+      display: inline-flex;
+    }
+
+    .form-status {
+      min-height: 28px;
+      margin: 4px 0 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(247, 252, 255, .92);
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.65;
+    }
+
+    .form-status:empty {
+      display: none;
+    }
+
     @media(max-width: 760px) {
       #view-settings .management-dm-head {
         grid-template-columns: 1fr;
