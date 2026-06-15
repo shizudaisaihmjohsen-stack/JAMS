@@ -76,6 +76,7 @@ const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
 const elements = {
   mainNav: $("mainNav"),
   appLoginLink: $("appLoginLink"),
+  logoutButton: $("logoutButton"),
   loginMessage: $("loginMessage"),
   csvFileInput: $("csvFileInput"),
   loadSampleButton: $("loadSampleButton"),
@@ -651,6 +652,9 @@ function isViewAllowed(view) {
 function applyAccessUi() {
   canEditMembers = appAccess === "admin";
   document.body.dataset.access = appAccess;
+  if (elements.logoutButton) {
+    elements.logoutButton.hidden = appAccess === "guest" || appAccess === "none";
+  }
   document.querySelectorAll(".tab").forEach((tab) => {
     const allowed = isViewAllowed(tab.dataset.view);
     tab.hidden = !allowed;
@@ -663,6 +667,46 @@ function applyAccessUi() {
   document.querySelectorAll("#view-list .list-control-panel").forEach((panel) => {
     panel.classList.toggle("hidden", appAccess === "self");
   });
+}
+
+async function logout() {
+  if (!sGateBaseUrl) {
+    appAccess = "guest";
+    currentMemberNo = "";
+    canEditMembers = false;
+    members = [];
+    applyAccessUi();
+    setLoginMessage("ログアウトしました。");
+    switchView("login");
+    return;
+  }
+
+  if (elements.logoutButton) {
+    elements.logoutButton.disabled = true;
+    elements.logoutButton.textContent = "ログアウト中";
+  }
+  try {
+    await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/sgate/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // Cookie削除に失敗しても、画面側はログイン画面へ戻します。
+  } finally {
+    appAccess = "guest";
+    currentMemberNo = "";
+    canEditMembers = false;
+    members = [];
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(DATA_SOURCE_KEY);
+    applyAccessUi();
+    setLoginMessage("ログアウトしました。");
+    if (elements.logoutButton) {
+      elements.logoutButton.disabled = false;
+      elements.logoutButton.textContent = "ログアウト";
+    }
+    switchView("login");
+  }
 }
 
 function switchView(view) {
@@ -990,6 +1034,7 @@ function wireEvents() {
   elements.loadMembersButton?.addEventListener("click", loadMembersFromDatabase);
   elements.previewDmButton?.addEventListener("click", previewAbsenceDmTargets);
   elements.sendDmButton?.addEventListener("click", sendAbsenceDm);
+  elements.logoutButton?.addEventListener("click", logout);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
   $("deleteAllBtn")?.addEventListener("click", () => {
     if (!confirm("ブラウザ上の部員データをすべて削除しますか？")) return;

@@ -71,6 +71,10 @@ async function route(request, env, ctx) {
     return handleDiscordCallback(request, env);
   }
 
+  if ((request.method === "GET" || request.method === "POST") && url.pathname === "/sgate/logout") {
+    return handleLogout(request, env);
+  }
+
   if (request.method === "GET" && url.pathname === "/api/sgate/me") {
     return getCurrentSession(request, env);
   }
@@ -314,6 +318,21 @@ async function handleDiscordCallback(request, env) {
     sameSite: getSessionCookieSameSite(request, env),
   }));
   return new Response(null, { status: 302, headers });
+}
+
+function handleLogout(request, env) {
+  const headers = new Headers({
+    "Content-Type": "application/json; charset=utf-8",
+    ...corsHeaders(request, env),
+  });
+  headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, "", {
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: getSessionCookieSameSite(request, env),
+  }));
+  headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+  headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+  return new Response(JSON.stringify({ ok: true }, null, 2), { status: 200, headers });
 }
 
 async function getCurrentSession(request, env) {

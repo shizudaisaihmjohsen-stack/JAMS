@@ -5408,6 +5408,11 @@
       content: none !important;
     }
 
+    .top-switch-nav[hidden],
+    .top-switch-nav .tab[hidden] {
+      display: none !important;
+    }
+
     #view-register .register-derived dl {
       grid-template-columns: 82px minmax(0, 1fr) !important;
       gap: 9px 14px !important;
@@ -5525,6 +5530,38 @@
       justify-content: center;
       margin-top: 0;
       padding-top: 0;
+    }
+
+    .logout-button {
+      flex: 0 0 auto;
+      min-width: 92px;
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .92);
+      color: var(--blue-deep);
+      font: inherit;
+      font-size: 12px;
+      line-height: 1;
+      letter-spacing: .08em;
+      box-shadow: 0 8px 18px rgba(47, 126, 194, .10);
+      cursor: pointer;
+    }
+
+    .logout-button:hover {
+      background: #f3fbff;
+      transform: translateY(-1px);
+    }
+
+    .logout-button:disabled {
+      cursor: wait;
+      opacity: .68;
+      transform: none;
+    }
+
+    .logout-button[hidden] {
+      display: none !important;
     }
 
     #view-settings .management-dm-panel {
