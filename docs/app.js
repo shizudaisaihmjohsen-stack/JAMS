@@ -59,12 +59,6 @@ const DEPARTMENT_MAP = {
   ]),
 };
 
-const sampleCsv = `氏名,フリガナ,LINEの名前,学籍番号,大学メール,区分,役職,配属先,認証状態,新歓,第1回,第2回,第3回,第4回,第5回
-情報 太郎,ジョウホウ タロウ,Taro,525A1001,taro@example.ac.jp,RC,部長,ウェブサイト広報課,認証済,出席,出席,出席,出席,出席,出席
-宣伝 花子,センデン ハナコ,Hana,725A0002,hana@example.ac.jp,RC,課長,SNS広報課,認証済,出席,出席,欠席,出席,出席,未定
-補佐 三郎,ホサ サブロウ,Saburo,525A1502,saburo@example.ac.jp,SV,,パンフレット課,認証済,出席,出席,出席,未定,未定,未定
-広報 次郎,コウホウ ジロウ,Jiro,525A2003,jiro@example.ac.jp,JC,,ポスター課,未認証,欠席,出席,出席,未定,未定,未定`;
-
 let members = [];
 let appAccess = "guest";
 let currentMemberNo = "";
@@ -79,7 +73,6 @@ const elements = {
   logoutButton: $("logoutButton"),
   loginMessage: $("loginMessage"),
   csvFileInput: $("csvFileInput"),
-  loadSampleButton: $("loadSampleButton"),
   loadMembersButton: $("loadMembersButton"),
   exportButton: $("exportButton"),
   saveMembersButton: $("saveMembersButton"),
@@ -1052,11 +1045,6 @@ function wireEvents() {
     saveMembers(makeMembersFromCsv(text));
     localStorage.setItem(DATA_SOURCE_KEY, file.name);
     showMessage("dataMessage", `${members.length}件をCSVから読み込みました。`, "ok");
-  });
-  elements.loadSampleButton?.addEventListener("click", () => {
-    saveMembers(makeMembersFromCsv(sampleCsv));
-    localStorage.setItem(DATA_SOURCE_KEY, "サンプルデータ");
-    showMessage("dataMessage", "サンプルデータを読み込みました。", "ok");
   });
   elements.exportButton?.addEventListener("click", exportCsv);
   elements.saveMembersButton?.addEventListener("click", saveMembersToDatabase);
