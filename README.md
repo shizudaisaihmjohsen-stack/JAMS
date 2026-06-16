@@ -105,6 +105,8 @@ JAMS_FRONTEND_URL=https://ユーザー名.github.io/リポジトリ名/sgate-res
 JAMS_FRONTEND_ORIGIN=https://ユーザー名.github.io
 ```
 
+`sgate-result.html` はDiscord OAuth後の結果表示ページです。`/auth` コマンド後の認証コード入力は `verify.html` に集約しています。
+
 ## Cloudflare Worker
 
 ローカル開発では、`wrangler.toml` と同じ階層にある `.env` が読み込まれます。

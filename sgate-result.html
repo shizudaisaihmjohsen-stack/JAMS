@@ -4,126 +4,51 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>S-GATE 認証結果 | JAMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="result-page">
-      <section class="panel result-panel">
-        <p class="eyebrow">S-GATE</p>
-        <h1 id="resultTitle">認証結果を確認しています</h1>
+    <header class="site-header">
+      <div class="wrap site-header-inner">
+        <div class="brand">
+          <div class="brand-mark"><img src="assets/hm-logo-transparent.png" alt="浜松静大祭実行委員会"></div>
+          <div>
+            <div class="brand-kicker">浜松静大祭実行委員会</div>
+            <h1>情報宣伝部 部員認証・管理システム</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap sgate-verify-page">
+      <section class="card sgate-verify-card">
+        <p class="section-en">S-GATE</p>
+        <h2 id="resultTitle">認証結果を確認しています</h2>
         <p id="resultText" hidden></p>
-        <form id="emailVerificationForm" class="verify-form" hidden>
-          <label id="emailField">
-            <span>大学メールアドレス</span>
-            <input id="universityEmailInput" type="email" autocomplete="email" required>
-          </label>
-          <label id="studentIdField">
-            <span>学籍番号</span>
-            <input id="studentIdInput" type="text" inputmode="latin" maxlength="8" placeholder="525A1001">
-          </label>
-          <button id="sendCodeButton" type="button">認証コードを送信</button>
-          <label>
-            <span>認証コード</span>
-            <input id="verificationCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required>
-          </label>
-          <button type="submit">認証を完了</button>
-          <p id="emailVerificationStatus" class="form-status"></p>
-        </form>
         <a class="button-link" href="index.html">JAMSに戻る</a>
       </section>
     </main>
-    <script src="config.js"></script>
     <script>
-      const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl?.replace(/\/$/, "");
       const params = new URLSearchParams(location.search);
       const status = params.get("status");
       const mode = params.get("mode");
       const token = params.get("token");
-      const isTokenVerification = Boolean(token) || mode === "token";
+      if (token || mode === "token") {
+        location.replace(`verify.html${location.search}`);
+      }
+
       const messages = {
-        login_ok: ["Discord認証が完了しました", ""],
-        state_error: ["認証を完了できませんでした", "安全確認用のstateが一致しませんでした。もう一度Discord認証を実行してください。"],
+        login_ok: ["Discord認証が完了しました", "続けてJAMSを開いてください。"],
+        state_error: ["認証を完了できませんでした", "もう一度Discord認証を実行してください。"],
         discord_error: ["Discord認証がキャンセルされました", "Discord側で認証が完了しませんでした。"],
-        error: ["認証処理でエラーが発生しました", ""]
+        error: ["認証処理でエラーが発生しました", "時間をおいて、もう一度実行してください。"]
       };
-      const [title, text] = isTokenVerification
-        ? ["認証コードを入力してください", ""]
-        : (messages[status] ?? messages.error);
+      const [title, text] = messages[status] ?? messages.error;
       document.querySelector("#resultTitle").textContent = title;
       document.querySelector("#resultText").textContent = text;
       document.querySelector("#resultText").hidden = !text;
-      const form = document.querySelector("#emailVerificationForm");
-      const statusText = document.querySelector("#emailVerificationStatus");
-      const emailInput = document.querySelector("#universityEmailInput");
-      const studentIdInput = document.querySelector("#studentIdInput");
-      const codeInput = document.querySelector("#verificationCodeInput");
-
-      if (isTokenVerification && token && sGateBaseUrl) {
-        form.hidden = false;
-        document.querySelector("#emailField").hidden = true;
-        document.querySelector("#studentIdField").hidden = true;
-        emailInput.required = false;
-        emailInput.disabled = true;
-        studentIdInput.disabled = true;
-        document.querySelector("#sendCodeButton").hidden = true;
-      } else if (isTokenVerification && !token) {
-        document.querySelector("#resultTitle").textContent = "認証リンクが正しくありません";
-        document.querySelector("#resultText").textContent = "Discordの /auth から表示されたリンクを開き直してください。";
-        document.querySelector("#resultText").hidden = false;
-      } else if (status === "login_ok" && sGateBaseUrl) {
-        form.hidden = false;
-      } else if (status === "login_ok") {
-        document.querySelector("#resultText").textContent = "Discord認証は完了しています。大学メール認証を使うには config.js に sGateBaseUrl を設定してください。";
-        document.querySelector("#resultText").hidden = false;
-      }
-
-      async function postJson(path, payload) {
-        const response = await fetch(`${sGateBaseUrl}${path}`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.detail || data.message || data.error || "request_failed");
-        }
-        return data;
-      }
-
-      document.querySelector("#sendCodeButton").addEventListener("click", async () => {
-        statusText.textContent = "認証コードを送信しています。";
-        try {
-          const data = await postJson("/api/sgate/email/start", {
-            email: emailInput.value,
-            studentId: studentIdInput.value,
-          });
-          statusText.textContent = data.message || "認証コードを送信しました。";
-        } catch (error) {
-          statusText.textContent = `送信できませんでした: ${error.message}`;
-        }
-      });
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        statusText.textContent = "認証コードを確認しています。";
-        try {
-          const data = isTokenVerification
-            ? await postJson("/api/sgate/email/confirm-token", {
-                token,
-                code: codeInput.value,
-              })
-            : await postJson("/api/sgate/email/confirm", {
-                email: emailInput.value,
-                code: codeInput.value,
-              });
-          document.querySelector("#resultTitle").textContent = "S-GATE認証が完了しました";
-          document.querySelector("#resultText").textContent = `${data.member.name} さんを認証しました。Discordロールを更新しました。`;
-          statusText.textContent = `付与ロール: ${data.roles.join(" / ")}`;
-        } catch (error) {
-          statusText.textContent = `認証できませんでした: ${error.message}`;
-        }
-      });
     </script>
   </body>
 </html>
