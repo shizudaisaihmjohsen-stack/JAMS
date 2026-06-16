@@ -470,6 +470,7 @@ async function confirmEmailVerification(request, env) {
     team: member.team,
   });
   const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
+  await setMemberNicknameBestEffort(session.userId, member.name, env, "S-GATE email verified");
   await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE email verified");
   for (const roleId of roleIds) {
     await addRole(session.userId, roleId, env, "S-GATE email verified");
@@ -539,6 +540,7 @@ async function completeMemberVerification(email, discordUserId, env) {
     team: member.team,
   });
   const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
+  await setMemberNicknameBestEffort(discordUserId, member.name, env, "S-GATE email verified");
   await removeRole(discordUserId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE email verified");
   for (const roleId of roleIds) {
     await addRole(discordUserId, roleId, env, "S-GATE email verified");
@@ -1233,6 +1235,28 @@ async function removeRole(userId, roleId, env, reason) {
     method: "DELETE",
     headers: botHeaders(env, reason),
   }, [204, 404]);
+}
+
+function makeDiscordNickname(name) {
+  return String(name ?? "").replace(/[\s\u3000]+/g, "").slice(0, 32);
+}
+
+async function setMemberNickname(userId, name, env, reason) {
+  const nick = makeDiscordNickname(name);
+  if (!userId || !nick) return;
+  await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`, {
+    method: "PATCH",
+    headers: botHeaders(env, reason),
+    body: JSON.stringify({ nick }),
+  }, [200]);
+}
+
+async function setMemberNicknameBestEffort(userId, name, env, reason) {
+  try {
+    await setMemberNickname(userId, name, env, reason);
+  } catch (error) {
+    console.warn(`Skipping optional nickname update: ${error.message}`);
+  }
 }
 
 async function sendDirectMessage(userId, content, env) {
