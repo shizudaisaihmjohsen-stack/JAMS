@@ -321,6 +321,29 @@ function assignMemberNumbers(sourceMembers) {
   return sorted;
 }
 
+function compareMemberNo(a, b) {
+  const parse = (value) => {
+    const match = String(value || "").match(/^([A-Z])(\d+)$/i);
+    const prefixOrder = { J: 0, S: 1, R: 2 };
+    if (!match) return { group: 99, number: Number.MAX_SAFE_INTEGER, raw: String(value || "") };
+    const prefix = match[1].toUpperCase();
+    return {
+      group: prefixOrder[prefix] ?? 98,
+      number: Number(match[2]),
+      raw: String(value || ""),
+    };
+  };
+  const left = parse(a?.memberNo);
+  const right = parse(b?.memberNo);
+  if (left.group !== right.group) return left.group - right.group;
+  if (left.number !== right.number) return left.number - right.number;
+  return left.raw.localeCompare(right.raw, "ja", { numeric: true });
+}
+
+function sortMembersByMemberNo(sourceMembers) {
+  return [...sourceMembers].sort(compareMemberNo);
+}
+
 function getMembers() {
   return members;
 }
@@ -469,7 +492,7 @@ function renderList() {
 
   const sortBy = $("sortBy")?.value || "number";
   displayMembers.sort((a, b) => {
-    if (sortBy === "number") return a.memberNo.localeCompare(b.memberNo, "ja", { numeric: true });
+    if (sortBy === "number") return compareMemberNo(a, b);
     if (sortBy === "assignment") return (a.team || "").localeCompare(b.team || "", "ja");
     return String(a[sortBy] || "").localeCompare(String(b[sortBy] || ""), "ja");
   });
@@ -493,7 +516,7 @@ function renderManagementTable() {
     elements.tableBody.innerHTML = '<tr><td colspan="6">表示できる部員がいません。</td></tr>';
     return;
   }
-  elements.tableBody.innerHTML = members.map((member) => `
+  elements.tableBody.innerHTML = sortMembersByMemberNo(members).map((member) => `
     <tr>
       <td><strong>${escapeHtml(member.memberNo)}</strong></td>
       <td>${escapeHtml(member.name)}</td>
@@ -562,7 +585,8 @@ function profileHtml(member) {
 function renderAllProfiles() {
   const target = $("searchResult");
   if (!target) return;
-  target.innerHTML = members.length ? members.map(profileHtml).join("") : '<div class="empty">登録されている部員がいません。</div>';
+  const displayMembers = sortMembersByMemberNo(members);
+  target.innerHTML = displayMembers.length ? displayMembers.map(profileHtml).join("") : '<div class="empty">登録されている部員がいません。</div>';
 }
 
 function searchMembers() {
@@ -571,7 +595,7 @@ function searchMembers() {
     renderAllProfiles();
     return;
   }
-  const found = members.filter((member) =>
+  const found = sortMembersByMemberNo(members).filter((member) =>
     member.memberNo.toLowerCase() === key ||
     member.name.toLowerCase().includes(key) ||
     member.kana.toLowerCase().includes(key) ||
