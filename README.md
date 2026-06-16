@@ -101,11 +101,11 @@ window.JAMS_CONFIG = {
 本番URLが決まったら、Worker側の次の値を設定して再デプロイします。
 
 ```env
-JAMS_FRONTEND_URL=https://ユーザー名.github.io/リポジトリ名/sgate-result.html
+JAMS_FRONTEND_URL=https://ユーザー名.github.io/リポジトリ名/
 JAMS_FRONTEND_ORIGIN=https://ユーザー名.github.io
 ```
 
-`sgate-result.html` はDiscord OAuth後の結果表示ページです。`/auth` コマンド後の認証コード入力は `verify.html` に集約しています。
+Discord OAuth後はJAMS本体の `index.html` に戻ります。`/auth` コマンド後の認証コード入力は `verify.html` に集約しています。
 
 ## Cloudflare Worker
 

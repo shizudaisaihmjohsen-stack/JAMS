@@ -1400,7 +1400,7 @@ function getFrontendUrl(request, env) {
     return env.JAMS_FRONTEND_URL;
   }
   const url = new URL(request.url);
-  return `${url.origin}/sgate-result.html`;
+  return `${url.origin}/index.html`;
 }
 
 function getLoginReturnUrl(request, env) {
@@ -1435,7 +1435,7 @@ function sanitizeReturnTo(value, env) {
 }
 
 function getFrontendUrlFromEnv(env) {
-  return env.JAMS_FRONTEND_URL || "sgate-result.html";
+  return env.JAMS_FRONTEND_URL || "index.html";
 }
 
 function getVerificationUrlFromEnv(env) {

@@ -830,12 +830,29 @@ function setLoginMessage(text) {
   elements.loginMessage.hidden = !text;
 }
 
+function consumeLoginStatus() {
+  const url = new URL(window.location.href);
+  const status = url.searchParams.get("status");
+  if (!status) return "";
+
+  url.searchParams.delete("status");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+
+  const messages = {
+    login_ok: "",
+    state_error: "認証を完了できませんでした。もう一度Discordログインを実行してください。",
+    discord_error: "Discord認証がキャンセルされました。もう一度Discordログインを実行してください。",
+  };
+  return messages[status] ?? "認証処理でエラーが発生しました。時間をおいて、もう一度実行してください。";
+}
+
 async function loadAppBootstrap() {
+  const loginStatusMessage = consumeLoginStatus();
   if (!sGateBaseUrl) {
     appAccess = "guest";
     members = [];
     applyAccessUi();
-    setLoginMessage("config.js に sGateBaseUrl を設定してください。");
+    setLoginMessage(loginStatusMessage || "config.js に sGateBaseUrl を設定してください。");
     switchView("login");
     return;
   }
@@ -850,7 +867,7 @@ async function loadAppBootstrap() {
       appAccess = "guest";
       members = [];
       applyAccessUi();
-      setLoginMessage("");
+      setLoginMessage(loginStatusMessage);
       switchView("login");
       return;
     }
@@ -879,7 +896,7 @@ async function loadAppBootstrap() {
     appAccess = "guest";
     members = [];
     applyAccessUi();
-    setLoginMessage(`ログイン状態を確認できませんでした: ${error.message}`);
+    setLoginMessage(loginStatusMessage || `ログイン状態を確認できませんでした: ${error.message}`);
     switchView("login");
   }
 }
