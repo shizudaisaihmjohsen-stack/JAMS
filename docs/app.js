@@ -514,7 +514,7 @@ function renderManagementTable() {
   }
   elements.tableBody.innerHTML = sortMembersByMemberNo(members).map((member) => `
     <tr>
-      <td><strong>${escapeHtml(member.memberNo)}</strong></td>
+      <td>${escapeHtml(member.memberNo)}</td>
       <td>${escapeHtml(member.name)}</td>
       <td>${escapeHtml(member.kana || "-")}</td>
       <td class="discord-id-cell">${escapeHtml(member.sGateUserId || "-")}</td>
