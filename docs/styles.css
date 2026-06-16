@@ -5511,14 +5511,46 @@
       margin-bottom: 18px !important;
     }
 
-    #view-settings .table-wrap table {
-      min-width: 860px;
+    #view-settings .management-member-table-wrap table {
+      min-width: 1080px;
+      table-layout: fixed;
+      width: 100%;
     }
 
-    #view-settings .table-wrap th,
-    #view-settings .table-wrap td {
+    #view-settings .management-member-table-wrap th,
+    #view-settings .management-member-table-wrap td {
       text-align: center;
       vertical-align: middle;
+    }
+
+    #view-settings .management-member-table-wrap th:nth-child(1),
+    #view-settings .management-member-table-wrap td:nth-child(1) {
+      width: 86px;
+    }
+
+    #view-settings .management-member-table-wrap th:nth-child(2),
+    #view-settings .management-member-table-wrap td:nth-child(2) {
+      width: 150px;
+    }
+
+    #view-settings .management-member-table-wrap th:nth-child(3),
+    #view-settings .management-member-table-wrap td:nth-child(3) {
+      width: 180px;
+    }
+
+    #view-settings .management-member-table-wrap th:nth-child(4),
+    #view-settings .management-member-table-wrap td:nth-child(4) {
+      width: 210px;
+    }
+
+    #view-settings .management-member-table-wrap th:nth-child(5),
+    #view-settings .management-member-table-wrap td:nth-child(5) {
+      width: 230px;
+    }
+
+    #view-settings .management-member-table-wrap th:nth-child(6),
+    #view-settings .management-member-table-wrap td:nth-child(6) {
+      width: 170px;
     }
 
     #view-settings .sgate-status {
@@ -5536,6 +5568,8 @@
       font-family: "Inter", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", "YuGothic", "Meiryo", system-ui, sans-serif;
       letter-spacing: .02em;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     #view-login .login-card {
