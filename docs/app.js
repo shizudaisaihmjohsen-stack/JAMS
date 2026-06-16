@@ -506,7 +506,7 @@ function meetingSummary(member) {
 function renderManagementTable() {
   if (!elements.tableBody) return;
   if (!members.length) {
-    elements.tableBody.innerHTML = '<tr><td colspan="6">表示できる部員がいません。</td></tr>';
+    elements.tableBody.innerHTML = '<tr><td colspan="5">表示できる部員がいません。</td></tr>';
     return;
   }
   elements.tableBody.innerHTML = sortMembersByMemberNo(members).map((member) => `
@@ -514,7 +514,6 @@ function renderManagementTable() {
       <td><strong>${escapeHtml(member.memberNo)}</strong></td>
       <td>${escapeHtml(member.name)}</td>
       <td>${escapeHtml(member.kana || "-")}</td>
-      <td>${escapeHtml(member.studentId)}</td>
       <td class="discord-id-cell">${escapeHtml(member.discordUserId || "-")}</td>
       <td><span class="pill sgate-status ${member.authStatus === "認証済" ? "green" : "gray"}">${escapeHtml(member.authStatus === "認証済" ? ROLE_NAMES.sGateVerified : ROLE_NAMES.sGateUnverified)}</span></td>
     </tr>
