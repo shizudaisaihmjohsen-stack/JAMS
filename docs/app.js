@@ -276,6 +276,7 @@ function normalizeMember(member) {
     studentId: parsedId.normalized,
     email: normalize(member.email).toLowerCase(),
     discordUserId: normalize(member.discordUserId ?? member.discord_user_id ?? member.discordId ?? member.discord_id),
+    sGateUserId: normalize(member.sGateUserId ?? member.s_gate_user_id ?? member.discordUsername ?? member.discord_username),
     committeeType: normalizeCommitteeType(member.committeeType ?? member.committee_type, member.position),
     position: normalize(member.position),
     team: getTeamFromAssignments(assignments),
@@ -376,6 +377,7 @@ function makeMembersFromCsv(text) {
       studentId: parsedId.normalized,
       email: record["大学メール"],
       discordUserId: record["Discord ID"] || record["discord_user_id"] || record["DiscordユーザーID"],
+      sGateUserId: record["S-GATEユーザーID"] || record["S-GATE ユーザーID"] || record["discord_username"] || record["Discordユーザー名"],
       committeeType: normalizeCommitteeType(record["区分"], record["役職"]),
       position: record["役職"],
       team: record["配属先"] || record["所属の課"],
@@ -399,6 +401,7 @@ function makeMembersFromDatabaseRows(rows) {
     studentId: row.student_id,
     email: row.email,
     discordUserId: row.discord_user_id,
+    sGateUserId: row.discord_username,
     committeeType: row.committee_type,
     position: row.position,
     team: row.team,
@@ -514,7 +517,7 @@ function renderManagementTable() {
       <td><strong>${escapeHtml(member.memberNo)}</strong></td>
       <td>${escapeHtml(member.name)}</td>
       <td>${escapeHtml(member.kana || "-")}</td>
-      <td class="discord-id-cell">${escapeHtml(member.discordUserId || "-")}</td>
+      <td class="discord-id-cell">${escapeHtml(member.sGateUserId || "-")}</td>
       <td><span class="pill sgate-status ${member.authStatus === "認証済" ? "green" : "gray"}">${escapeHtml(member.authStatus === "認証済" ? ROLE_NAMES.sGateVerified : ROLE_NAMES.sGateUnverified)}</span></td>
     </tr>
   `).join("");

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS members (
   meeting_4 TEXT,
   meeting_5 TEXT,
   discord_user_id TEXT UNIQUE,
+  discord_username TEXT,
   verified_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -30,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_members_discord_user_id ON members(discord_user_i
 CREATE TABLE IF NOT EXISTS email_verification_codes (
   email TEXT PRIMARY KEY,
   discord_user_id TEXT NOT NULL,
+  discord_username TEXT,
   code_hash TEXT NOT NULL,
   token_hash TEXT,
   expires_at INTEGER NOT NULL,

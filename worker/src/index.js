@@ -190,7 +190,9 @@ function buildAuthModalResponse() {
 
 async function processAuthModalSubmit(interaction, env) {
   try {
-    const discordUserId = interaction.member?.user?.id ?? interaction.user?.id;
+    const discordUser = interaction.member?.user ?? interaction.user ?? {};
+    const discordUserId = discordUser.id;
+    const discordUsername = clean(discordUser.username);
     const values = getModalValues(interaction);
     const studentId = String(values.student_id ?? "").trim().toUpperCase();
     const email = normalizeEmail(values.email);
@@ -218,16 +220,17 @@ async function processAuthModalSubmit(interaction, env) {
     const tokenHash = await hashVerificationToken(token, env);
 
     await env.DB.prepare(`
-      INSERT INTO email_verification_codes (email, discord_user_id, code_hash, token_hash, expires_at, attempts, created_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?)
+      INSERT INTO email_verification_codes (email, discord_user_id, discord_username, code_hash, token_hash, expires_at, attempts, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?)
       ON CONFLICT(email) DO UPDATE SET
         discord_user_id = excluded.discord_user_id,
+        discord_username = excluded.discord_username,
         code_hash = excluded.code_hash,
         token_hash = excluded.token_hash,
         expires_at = excluded.expires_at,
         attempts = 0,
         created_at = excluded.created_at
-    `).bind(email, discordUserId, codeHash, tokenHash, expiresAt, Date.now()).run();
+    `).bind(email, discordUserId, discordUsername, codeHash, tokenHash, expiresAt, Date.now()).run();
 
     await sendVerificationEmail(email, code, env);
     const verifyUrl = `${getVerificationUrlFromEnv(env)}?token=${encodeURIComponent(token)}`;
@@ -396,15 +399,16 @@ async function startEmailVerification(request, env) {
     const codeHash = await hashVerificationCode(email, code, env);
 
     await env.DB.prepare(`
-      INSERT INTO email_verification_codes (email, discord_user_id, code_hash, expires_at, attempts, created_at)
-      VALUES (?, ?, ?, ?, 0, ?)
+      INSERT INTO email_verification_codes (email, discord_user_id, discord_username, code_hash, expires_at, attempts, created_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?)
       ON CONFLICT(email) DO UPDATE SET
         discord_user_id = excluded.discord_user_id,
+        discord_username = excluded.discord_username,
         code_hash = excluded.code_hash,
         expires_at = excluded.expires_at,
         attempts = 0,
         created_at = excluded.created_at
-    `).bind(email, session.userId, codeHash, expiresAt, Date.now()).run();
+    `).bind(email, session.userId, clean(session.username), codeHash, expiresAt, Date.now()).run();
 
     await sendVerificationEmail(email, code, env);
     return json({
@@ -436,7 +440,7 @@ async function confirmEmailVerification(request, env) {
   }
 
   const stored = await env.DB.prepare(`
-    SELECT email, discord_user_id, code_hash, expires_at, attempts
+    SELECT email, discord_user_id, discord_username, code_hash, expires_at, attempts
     FROM email_verification_codes
     WHERE email = ?
   `).bind(email).first();
@@ -460,9 +464,9 @@ async function confirmEmailVerification(request, env) {
 
   await env.DB.prepare(`
     UPDATE members
-    SET discord_user_id = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
+    SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).bind(session.userId, new Date().toISOString(), member.id).run();
+  `).bind(session.userId, clean(session.username), new Date().toISOString(), member.id).run();
 
   const roleNames = buildVerifiedRoleNames({
     committeeType: member.committee_type,
@@ -500,7 +504,7 @@ async function confirmEmailVerificationByToken(request, env) {
 
   const tokenHash = await hashVerificationToken(token, env);
   const stored = await env.DB.prepare(`
-    SELECT email, discord_user_id, code_hash, expires_at, attempts
+    SELECT email, discord_user_id, discord_username, code_hash, expires_at, attempts
     FROM email_verification_codes
     WHERE token_hash = ?
   `).bind(tokenHash).first();
@@ -517,12 +521,12 @@ async function confirmEmailVerificationByToken(request, env) {
     return json({ error: "invalid_or_expired_code" }, 400, request, env);
   }
 
-  const result = await completeMemberVerification(stored.email, stored.discord_user_id, env);
+  const result = await completeMemberVerification(stored.email, stored.discord_user_id, stored.discord_username, env);
   await env.DB.prepare(`DELETE FROM email_verification_codes WHERE email = ?`).bind(stored.email).run();
   return json(result, 200, request, env);
 }
 
-async function completeMemberVerification(email, discordUserId, env) {
+async function completeMemberVerification(email, discordUserId, discordUsername, env) {
   const member = await findMemberForEmail(email, "", env);
   if (!member) {
     throw httpError("member_not_found", 404);
@@ -530,9 +534,9 @@ async function completeMemberVerification(email, discordUserId, env) {
 
   await env.DB.prepare(`
     UPDATE members
-    SET discord_user_id = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
+    SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).bind(discordUserId, new Date().toISOString(), member.id).run();
+  `).bind(discordUserId, clean(discordUsername), new Date().toISOString(), member.id).run();
 
   const roleNames = buildVerifiedRoleNames({
     committeeType: member.committee_type,
@@ -741,6 +745,7 @@ async function selectAllMembers(env) {
       meeting_4,
       meeting_5,
       discord_user_id,
+      discord_username,
       verified_at
     FROM members
     ORDER BY student_id
@@ -772,6 +777,7 @@ async function findMemberByDiscordUserId(discordUserId, env) {
       meeting_4,
       meeting_5,
       discord_user_id,
+      discord_username,
       verified_at
     FROM members
     WHERE discord_user_id = ?
