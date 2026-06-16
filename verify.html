@@ -33,11 +33,9 @@
           <input id="verificationCodeInput" class="verify-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required>
           <div class="buttons verify-actions">
             <button class="primary" type="submit">認証を完了</button>
-            <a class="secondary sgate-back-link" href="index.html">JAMSに戻る</a>
           </div>
           <p id="verificationStatus" class="form-status"></p>
         </form>
-        <a class="sgate-return-link" href="index.html">JAMSに戻る</a>
       </section>
     </main>
     <script src="config.js"></script>
@@ -71,14 +69,15 @@
           });
           const data = await response.json();
           if (!response.ok) {
-            throw new Error(data.detail || data.message || data.error || "request_failed");
+            throw new Error();
           }
           document.querySelector("#resultTitle").textContent = "S-GATE認証が完了しました";
-          document.querySelector("#resultText").textContent = `${data.member.name} さんを認証しました。Discordロールを更新しました。`;
+          document.querySelector("#resultText").textContent = "Discordに戻ってください";
           document.querySelector("#resultText").hidden = false;
-          statusText.textContent = `付与ロール: ${data.roles.join(" / ")}`;
-        } catch (error) {
-          statusText.textContent = `認証できませんでした: ${error.message}`;
+          form.hidden = true;
+          statusText.textContent = "";
+        } catch {
+          statusText.textContent = "認証できませんでした。認証コードを確認して、もう一度入力してください。";
         }
       });
     </script>
