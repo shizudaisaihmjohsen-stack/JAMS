@@ -639,11 +639,12 @@ function deleteMember(memberNo) {
   $("searchResult").innerHTML = "";
 }
 
-function resetForm() {
+function resetForm(clearMessage = true) {
   $("memberForm").reset();
   $("editingId").value = "";
+  $("saveBtn").disabled = false;
   $("saveBtn").textContent = "登録する";
-  showMessage("formMessage", "");
+  if (clearMessage) showMessage("formMessage", "");
   updateDerivedPreview();
 }
 
@@ -772,13 +773,20 @@ function exportCsv() {
 }
 
 async function saveMembersToDatabase() {
+  const savedCount = await persistMembersToDatabase();
+  if (savedCount !== null) {
+    showMessage("dataMessage", `${savedCount}件をD1へ保存しました。`, "ok");
+  }
+}
+
+async function persistMembersToDatabase() {
   if (!sGateBaseUrl) {
     showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
-    return;
+    return null;
   }
   if (!members.length) {
     showMessage("dataMessage", "保存する部員データがありません。", "error");
-    return;
+    return null;
   }
 
   elements.saveMembersButton.disabled = true;
@@ -792,9 +800,10 @@ async function saveMembersToDatabase() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || data.error || "保存に失敗しました。");
-    showMessage("dataMessage", `${data.imported}件をD1へ保存しました。`, "ok");
+    return data.imported;
   } catch (error) {
     showMessage("dataMessage", `DB保存エラー: ${error.message}`, "error");
+    return null;
   } finally {
     elements.saveMembersButton.disabled = false;
     elements.saveMembersButton.textContent = "DB保存";
@@ -1013,15 +1022,30 @@ function wireEvents() {
 
   $("studentId")?.addEventListener("input", updateDerivedPreview);
   $("clearBtn")?.addEventListener("click", resetForm);
-  $("memberForm")?.addEventListener("submit", (event) => {
+  $("memberForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const saveButton = $("saveBtn");
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = "保存中";
+    }
     const studentId = normalizeStudentId($("studentId").value);
     const info = parseStudentId(studentId);
-    if (info.error && !confirm("学籍番号から一部情報を判定できません。このまま登録しますか？")) return;
+    if (info.error && !confirm("学籍番号から一部情報を判定できません。このまま登録しますか？")) {
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = normalize($("editingId").value) ? "更新する" : "登録する";
+      }
+      return;
+    }
     const editingId = normalize($("editingId").value);
     const duplicate = members.find((member) => member.studentId === studentId && member.memberNo !== editingId);
     if (duplicate) {
       showMessage("formMessage", `同じ学籍番号の部員（${duplicate.memberNo}）が既に登録されています。`, "error");
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = editingId ? "更新する" : "登録する";
+      }
       return;
     }
 
@@ -1042,12 +1066,20 @@ function wireEvents() {
 
     if (editingId) {
       saveMembers(members.map((member) => member.memberNo === editingId ? { ...member, ...base } : member));
-      showMessage("formMessage", `${editingId}を更新しました。`, "ok");
     } else {
       saveMembers([...members, base]);
-      showMessage("formMessage", "登録しました。", "ok");
     }
-    resetForm();
+    const savedCount = await persistMembersToDatabase();
+    if (savedCount === null) {
+      showMessage("formMessage", `${editingId ? "更新" : "登録"}しましたが、D1への自動保存に失敗しました。管理メニューからDB保存を再実行してください。`, "error");
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = editingId ? "更新する" : "登録する";
+      }
+      return;
+    }
+    showMessage("formMessage", `${editingId ? `${editingId}を更新` : "登録"}し、D1へ自動保存しました。`, "ok");
+    resetForm(false);
   });
 
   ["listFilter", "assignmentFilter", "sortBy"].forEach((id) => $(id)?.addEventListener("input", renderList));
