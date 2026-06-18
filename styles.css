@@ -5628,6 +5628,15 @@
       padding: 0 22px;
     }
 
+    #view-login #directCode {
+      height: 58px;
+      text-align: center;
+      font-size: 26px;
+      letter-spacing: .28em;
+      font-weight: 700;
+      font-family: "Inter", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", "YuGothic", "Meiryo", system-ui, sans-serif;
+    }
+
     #view-login #appLoginLink {
       min-width: 220px;
       min-height: 46px;
