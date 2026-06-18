@@ -107,6 +107,10 @@ async function route(request, env, ctx) {
     return importMembers(request, env);
   }
 
+  if (request.method === "POST" && url.pathname === "/api/admin/members/delete") {
+    return deleteMember(request, env);
+  }
+
   if (request.method === "GET" && url.pathname === "/api/admin/members") {
     return listMembers(request, env);
   }
@@ -720,6 +724,45 @@ async function listMembers(request, env) {
   await requireAdminSession(request, env);
   const members = await selectAllMembers(env);
   return json({ ok: true, members }, 200, request, env);
+}
+
+async function deleteMember(request, env) {
+  const session = await requireAdminSession(request, env);
+  const body = await request.json();
+  const studentId = clean(body.studentId).toUpperCase();
+  const memberNo = clean(body.memberNo);
+  if (!studentId && !memberNo) {
+    return json({ error: "missing_member_key" }, 400, request, env);
+  }
+
+  const existing = studentId
+    ? await env.DB.prepare("SELECT id, member_no, name, student_id, email FROM members WHERE upper(student_id) = ?")
+      .bind(studentId)
+      .first()
+    : await env.DB.prepare("SELECT id, member_no, name, student_id, email FROM members WHERE member_no = ?")
+      .bind(memberNo)
+      .first();
+
+  if (!existing) {
+    return json({ error: "member_not_found" }, 404, request, env);
+  }
+
+  const statements = [
+    env.DB.prepare("DELETE FROM members WHERE id = ?").bind(existing.id),
+  ];
+  if (existing.email) {
+    statements.push(env.DB.prepare("DELETE FROM email_verification_codes WHERE lower(email) = ?").bind(normalizeEmail(existing.email)));
+  }
+  await env.DB.batch(statements);
+  return json({
+    ok: true,
+    deleted: {
+      memberNo: existing.member_no,
+      name: existing.name,
+      studentId: existing.student_id,
+    },
+    deletedBy: session.userId,
+  }, 200, request, env);
 }
 
 async function selectAllMembers(env) {

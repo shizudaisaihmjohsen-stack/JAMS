@@ -643,13 +643,16 @@ function editMember(memberNo) {
   showMessage("formMessage", `${member.memberNo}を編集中です。`, "ok");
 }
 
-function deleteMember(memberNo) {
+async function deleteMember(memberNo) {
   if (!canEditMembers) return;
   const member = members.find((entry) => entry.memberNo === memberNo);
   if (!member) return;
   if (!confirm(`${member.memberNo} ${member.name} さんを削除しますか？`)) return;
+  const deleted = await deleteMemberFromDatabase(member);
+  if (!deleted) return;
   saveMembers(members.filter((entry) => entry.memberNo !== memberNo));
   $("searchResult").innerHTML = "";
+  showMessage("dataMessage", `${member.memberNo} ${member.name} さんをD1から削除しました。`, "ok");
 }
 
 function resetForm(clearMessage = true) {
@@ -820,6 +823,48 @@ async function persistMembersToDatabase() {
   } finally {
     elements.saveMembersButton.disabled = false;
     elements.saveMembersButton.textContent = "DB保存";
+  }
+}
+
+async function persistMemberToDatabase(member) {
+  if (!sGateBaseUrl) {
+    showMessage("formMessage", "config.js に sGateBaseUrl を設定してください。", "error");
+    return false;
+  }
+  try {
+    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/members/import`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ members: [member] }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || data.error || "保存に失敗しました。");
+    return true;
+  } catch (error) {
+    showMessage("formMessage", `D1保存エラー: ${error.message}`, "error");
+    return false;
+  }
+}
+
+async function deleteMemberFromDatabase(member) {
+  if (!sGateBaseUrl) {
+    showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
+    return false;
+  }
+  try {
+    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/members/delete`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberNo: member.memberNo, studentId: member.studentId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || data.error || "削除に失敗しました。");
+    return true;
+  } catch (error) {
+    showMessage("dataMessage", `D1削除エラー: ${error.message}`, "error");
+    return false;
   }
 }
 
@@ -1208,8 +1253,9 @@ function wireEvents() {
     } else {
       saveMembers([...members, base]);
     }
-    const savedCount = await persistMembersToDatabase();
-    if (savedCount === null) {
+    const savedMember = members.find((member) => member.studentId === studentId);
+    const savedToDatabase = savedMember ? await persistMemberToDatabase(savedMember) : false;
+    if (!savedToDatabase) {
       showMessage("formMessage", `${editingId ? "更新" : "登録"}しましたが、D1への自動保存に失敗しました。管理メニューからDB保存を再実行してください。`, "error");
       if (saveButton) {
         saveButton.disabled = false;
@@ -1217,7 +1263,7 @@ function wireEvents() {
       }
       return;
     }
-    showMessage("formMessage", `${editingId ? `${editingId}を更新` : "登録"}し、D1へ自動保存しました。`, "ok");
+    showMessage("formMessage", `${editingId ? `${savedMember.memberNo}を更新` : `${savedMember.memberNo}を登録`}し、D1へ自動保存しました。`, "ok");
     resetForm(false);
   });
 
