@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS members (
   kana TEXT,
   line_name TEXT,
   student_id TEXT NOT NULL UNIQUE,
-  email TEXT NOT NULL UNIQUE,
+  email TEXT UNIQUE,
   grade TEXT,
   faculty TEXT,
   department TEXT,

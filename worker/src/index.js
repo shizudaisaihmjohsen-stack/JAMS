@@ -916,7 +916,7 @@ function normalizeMemberForImport(member) {
     kana: clean(member.kana),
     lineName: clean(member.lineName),
     studentId: clean(member.studentId).toUpperCase(),
-    email: normalizeEmail(member.email),
+    email: normalizeEmail(member.email) || null,
     grade: clean(member.grade),
     faculty: clean(member.faculty),
     department: clean(member.department),
@@ -938,7 +938,7 @@ function validateMemberForImport(member, rowNumber) {
   if (!member.memberNo) fields.push("部員No.");
   if (!member.name) fields.push("氏名");
   if (!/^[0-9A-Z]{8}$/.test(member.studentId)) fields.push("学籍番号");
-  if (!isValidEmail(member.email)) fields.push("大学メール");
+  if (member.email && !isValidEmail(member.email)) fields.push("大学メール");
   if (!member.faculty || member.faculty === "不明") fields.push("学部");
   if (!member.department || member.department === "不明") fields.push("学科");
   return fields.length ? { rowNumber, fields } : null;
