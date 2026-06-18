@@ -5506,6 +5506,43 @@
       padding-top: 12px !important;
     }
 
+    #view-settings .management-link-panel {
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    #view-settings .management-link-panel label {
+      margin: 0;
+      color: var(--blue-deep);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    #view-settings .management-link-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #view-settings #sGateInviteLink {
+      height: 42px;
+      font-size: 13px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .88);
+    }
+
+    #view-settings #copySgateLinkButton {
+      min-height: 42px !important;
+      height: 42px !important;
+      padding: 0 18px !important;
+      border-radius: 4px !important;
+      line-height: 1 !important;
+    }
+
     #view-settings .derived {
       margin-top: 18px !important;
       margin-bottom: 18px !important;

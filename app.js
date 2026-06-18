@@ -1,6 +1,7 @@
 const CURRENT_YEAR = 2026;
 const STORAGE_KEY = "jams.members.v2";
 const DATA_SOURCE_KEY = "jams.dataSource.v2";
+const PUBLIC_JAMS_URL = "https://shizudaisaihmjohsen-stack.github.io/JAMS/";
 const MEETING_LABELS = ["新歓", "第1回", "第2回", "第3回", "第4回", "第5回"];
 
 const ROLE_NAMES = {
@@ -86,6 +87,8 @@ const elements = {
   loadMembersButton: $("loadMembersButton"),
   exportButton: $("exportButton"),
   saveMembersButton: $("saveMembersButton"),
+  sGateInviteLink: $("sGateInviteLink"),
+  copySgateLinkButton: $("copySgateLinkButton"),
   discordLoginLink: $("discordLoginLink"),
   previewDmButton: $("previewDmButton"),
   sendDmButton: $("sendDmButton"),
@@ -870,6 +873,33 @@ function setDirectCodeMode(enabled) {
   if (elements.directCodeForm) elements.directCodeForm.hidden = !enabled;
 }
 
+function buildSgateInviteLink() {
+  if (!sGateBaseUrl) return "";
+  const loginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/login`;
+  return `${loginUrl}?return_to=${encodeURIComponent(PUBLIC_JAMS_URL)}`;
+}
+
+function updateSgateInviteLink() {
+  if (!elements.sGateInviteLink) return;
+  elements.sGateInviteLink.value = buildSgateInviteLink();
+}
+
+async function copySgateInviteLink() {
+  const link = elements.sGateInviteLink?.value || buildSgateInviteLink();
+  if (!link) {
+    showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    showMessage("dataMessage", "S-GATE認証リンクをコピーしました。", "ok");
+  } catch {
+    elements.sGateInviteLink?.focus();
+    elements.sGateInviteLink?.select();
+    showMessage("dataMessage", "コピーできない場合は、選択されたリンクを手動でコピーしてください。", "error");
+  }
+}
+
 function consumeLoginStatus() {
   const url = new URL(window.location.href);
   const status = url.searchParams.get("status");
@@ -1215,6 +1245,7 @@ function wireEvents() {
   elements.logoutButton?.addEventListener("click", logout);
   elements.directAuthForm?.addEventListener("submit", startDirectAuth);
   elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);
+  elements.copySgateLinkButton?.addEventListener("click", copySgateInviteLink);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
   $("deleteAllBtn")?.addEventListener("click", () => {
     if (!confirm("ブラウザ上の部員データをすべて削除しますか？")) return;
@@ -1246,4 +1277,5 @@ if (sGateBaseUrl) {
 
 wireEvents();
 updateDerivedPreview();
+updateSgateInviteLink();
 loadAppBootstrap();
