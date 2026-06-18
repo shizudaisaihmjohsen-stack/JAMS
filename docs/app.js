@@ -864,6 +864,7 @@ async function deleteMemberFromDatabase(member) {
     return true;
   } catch (error) {
     showMessage("dataMessage", `D1削除エラー: ${error.message}`, "error");
+    alert(`D1削除エラー: ${error.message}`);
     return false;
   }
 }
