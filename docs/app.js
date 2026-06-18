@@ -538,7 +538,7 @@ function profileHtml(member) {
     ? getAssignmentsFromTeam(member.team).map((assignment) => `<span class="id-assignment-text">${escapeHtml(assignment)}</span>`).join('<span class="id-separator">／</span>')
     : '<span class="id-muted">未設定</span>';
   const code = member.committeeType || "JC";
-  const committeeLabel = code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "役員補佐";
+  const committeeLabel = code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "補佐役員";
   return `<div class="id-card-save-wrapper">
   <div class="id-card-image-area">
     <article class="id-card-profile">
