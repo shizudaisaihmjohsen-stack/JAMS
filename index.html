@@ -34,9 +34,28 @@
           <p class="section-en">LOGIN</p>
           <h2>JAMSへログイン</h2>
           <div class="screen-control-panel login-panel">
-            <div class="login-action-box">
+            <div id="loginActionBox" class="login-action-box">
               <a id="appLoginLink" class="primary" href="#" aria-disabled="true">Discordでログイン</a>
             </div>
+            <form id="directAuthForm" class="direct-auth-form" hidden>
+              <div class="row">
+                <div>
+                  <label for="directStudentId">学籍番号</label>
+                  <input id="directStudentId" autocomplete="off" placeholder="例：525A2001" maxlength="8">
+                </div>
+                <div>
+                  <label for="directEmail">大学メールアドレス</label>
+                  <input id="directEmail" type="email" autocomplete="email" placeholder="例：example.25@shizuoka.ac.jp">
+                </div>
+              </div>
+              <button id="directAuthStartButton" class="primary" type="submit">認証コードを送信</button>
+            </form>
+            <form id="directCodeForm" class="direct-auth-form" hidden>
+              <label for="directCode">認証コード</label>
+              <input id="directCode" autocomplete="one-time-code" inputmode="numeric" placeholder="例：123456" maxlength="6">
+              <button id="directAuthConfirmButton" class="primary" type="submit">認証を完了</button>
+            </form>
+            <div id="directAuthMessage" class="form-status"></div>
             <div id="loginMessage" class="hint" hidden></div>
           </div>
         </div>

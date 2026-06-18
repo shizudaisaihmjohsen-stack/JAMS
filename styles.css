@@ -5602,6 +5602,32 @@
       align-items: center;
     }
 
+    #view-login .login-action-box[hidden],
+    #view-login .direct-auth-form[hidden] {
+      display: none !important;
+    }
+
+    #view-login .direct-auth-form {
+      display: grid;
+      gap: 14px;
+      text-align: left;
+    }
+
+    #view-login .direct-auth-form .row {
+      grid-template-columns: minmax(130px, .72fr) minmax(220px, 1.28fr);
+    }
+
+    #view-login .direct-auth-form label {
+      margin-top: 0;
+    }
+
+    #view-login .direct-auth-form button {
+      justify-self: center;
+      min-width: 180px;
+      height: 44px;
+      padding: 0 22px;
+    }
+
     #view-login #appLoginLink {
       min-width: 220px;
       min-height: 46px;
@@ -5631,6 +5657,14 @@
 
     @media(max-width: 640px) {
       #view-login .login-action-box {
+        width: 100%;
+      }
+
+      #view-login .direct-auth-form .row {
+        grid-template-columns: 1fr;
+      }
+
+      #view-login .direct-auth-form button {
         width: 100%;
       }
 

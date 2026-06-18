@@ -55,18 +55,22 @@ S-GATEは、JAMSの中に含まれるDiscord認証機能だけを指します。
 
 ## S-GATE認証フロー
 
-現在の主な認証フローは、Discordサーバー内の `/auth` コマンドです。
+現在の主な認証フローは、S-GATEのDiscord OAuth開始URLから直接認証に進む方式です。
 
-1. 部員が招待URLからDiscordサーバーに参加します。
-2. 未認証ロールで見える認証チャンネルで `/auth` を実行します。
-3. Discord上の入力フォームに学籍番号と大学メールを入力します。
+1. 部員がS-GATE認証リンクを開き、Discordで認可します。
+2. S-GATEがDiscordサーバー参加と `[S-GATE] 未認証` ロール付与を試行します。
+3. JAMS上のS-GATE認証フォームに学籍番号と大学メールを入力します。
 4. D1の名簿と照合し、一致した場合は大学メールへ認証コードを送信します。
-5. GitHub Pages上のコード入力ページで認証コードを入力します。
+5. JAMS上のコード入力欄で認証コードを入力します。
 6. 正しければ `[S-GATE] 未認証` を外し、`[S-GATE] 認証済`、RC/SV/JC、配属先ロールを付与します。
 
-旧方式として、Discord OAuth開始URLから認証するフローも残しています。万一Slash Command側に問題が出た場合の予備として使えます。
+S-GATE認証リンク:
 
-OAuth方式では、Discord OAuth完了時にサーバー参加と `[S-GATE] 未認証` ロール付与を試行します。ただし管理者ログインを妨げないよう、この2つは失敗してもログイン自体は継続します。
+```text
+https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F
+```
+
+予備方式として、Discordサーバー内の `/auth` コマンドから認証コードを送るフローも残しています。
 
 ## Discordロール判定
 

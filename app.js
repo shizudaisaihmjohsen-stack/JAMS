@@ -63,6 +63,7 @@ let members = [];
 let appAccess = "guest";
 let currentMemberNo = "";
 let canEditMembers = false;
+let directAuthEmail = "";
 
 const $ = (id) => document.getElementById(id);
 const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
@@ -70,6 +71,15 @@ const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
 const elements = {
   mainNav: $("mainNav"),
   appLoginLink: $("appLoginLink"),
+  loginActionBox: $("loginActionBox"),
+  directAuthForm: $("directAuthForm"),
+  directCodeForm: $("directCodeForm"),
+  directStudentId: $("directStudentId"),
+  directEmail: $("directEmail"),
+  directCode: $("directCode"),
+  directAuthMessage: $("directAuthMessage"),
+  directAuthStartButton: $("directAuthStartButton"),
+  directAuthConfirmButton: $("directAuthConfirmButton"),
   logoutButton: $("logoutButton"),
   loginMessage: $("loginMessage"),
   csvFileInput: $("csvFileInput"),
@@ -842,6 +852,24 @@ function setLoginMessage(text) {
   elements.loginMessage.hidden = !text;
 }
 
+function setDirectAuthMessage(text, type = "") {
+  if (!elements.directAuthMessage) return;
+  elements.directAuthMessage.textContent = text;
+  elements.directAuthMessage.className = `form-status${type ? ` ${type}` : ""}`;
+}
+
+function setDirectAuthMode(enabled) {
+  if (elements.loginActionBox) elements.loginActionBox.hidden = enabled;
+  if (elements.directAuthForm) elements.directAuthForm.hidden = !enabled;
+  if (elements.directCodeForm) elements.directCodeForm.hidden = true;
+  setDirectAuthMessage("");
+}
+
+function setDirectCodeMode(enabled) {
+  if (elements.directAuthForm) elements.directAuthForm.hidden = enabled;
+  if (elements.directCodeForm) elements.directCodeForm.hidden = !enabled;
+}
+
 function consumeLoginStatus() {
   const url = new URL(window.location.href);
   const status = url.searchParams.get("status");
@@ -879,6 +907,7 @@ async function loadAppBootstrap() {
       appAccess = "guest";
       members = [];
       applyAccessUi();
+      setDirectAuthMode(false);
       setLoginMessage(loginStatusMessage);
       switchView("login");
       return;
@@ -887,7 +916,8 @@ async function loadAppBootstrap() {
       appAccess = "none";
       members = [];
       applyAccessUi();
-      setLoginMessage("ログイン済みですが、JAMSを閲覧できる部員データが見つかりません。S-GATE認証が完了しているか確認してください。");
+      setLoginMessage("");
+      setDirectAuthMode(true);
       switchView("login");
       return;
     }
@@ -908,8 +938,87 @@ async function loadAppBootstrap() {
     appAccess = "guest";
     members = [];
     applyAccessUi();
+    setDirectAuthMode(false);
     setLoginMessage(loginStatusMessage || `ログイン状態を確認できませんでした: ${error.message}`);
     switchView("login");
+  }
+}
+
+function directAuthErrorMessage(errorCode) {
+  const messages = {
+    not_authenticated: "Discordログインからやり直してください。",
+    invalid_email_domain: "大学メールアドレスを入力してください。",
+    invalid_code: "認証コードを確認してください。",
+    invalid_or_expired_code: "認証コードが違うか、有効期限が切れています。",
+    member_not_found: "入力内容と一致する部員データが見つかりませんでした。",
+  };
+  return messages[errorCode] ?? "認証処理に失敗しました。時間を置いてもう一度お試しください。";
+}
+
+async function startDirectAuth(event) {
+  event?.preventDefault();
+  if (!sGateBaseUrl) {
+    setDirectAuthMessage("config.js に sGateBaseUrl を設定してください。", "error");
+    return;
+  }
+  const studentId = String(elements.directStudentId?.value ?? "").trim().toUpperCase();
+  const email = String(elements.directEmail?.value ?? "").trim().toLowerCase();
+  if (!/^[0-9A-Z]{8}$/.test(studentId) || !email) {
+    setDirectAuthMessage("学籍番号と大学メールアドレスを入力してください。", "error");
+    return;
+  }
+
+  elements.directAuthStartButton.disabled = true;
+  elements.directAuthStartButton.textContent = "送信中";
+  setDirectAuthMessage("");
+  try {
+    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/sgate/email/start`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(directAuthErrorMessage(data.error));
+    directAuthEmail = email;
+    setDirectCodeMode(true);
+    setDirectAuthMessage("大学メールに認証コードを送信しました。", "ok");
+    elements.directCode?.focus();
+  } catch (error) {
+    setDirectAuthMessage(error.message, "error");
+  } finally {
+    elements.directAuthStartButton.disabled = false;
+    elements.directAuthStartButton.textContent = "認証コードを送信";
+  }
+}
+
+async function confirmDirectAuth(event) {
+  event?.preventDefault();
+  const code = String(elements.directCode?.value ?? "").trim();
+  if (!directAuthEmail || !/^\d{6}$/.test(code)) {
+    setDirectAuthMessage("6桁の認証コードを入力してください。", "error");
+    return;
+  }
+
+  elements.directAuthConfirmButton.disabled = true;
+  elements.directAuthConfirmButton.textContent = "確認中";
+  setDirectAuthMessage("");
+  try {
+    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/sgate/email/confirm`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: directAuthEmail, code }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(directAuthErrorMessage(data.error));
+    setDirectAuthMessage("認証が完了しました。Discordに戻ってください。", "ok");
+    if (elements.directCodeForm) elements.directCodeForm.hidden = true;
+  } catch (error) {
+    setDirectAuthMessage(error.message, "error");
+  } finally {
+    elements.directAuthConfirmButton.disabled = false;
+    elements.directAuthConfirmButton.textContent = "認証を完了";
   }
 }
 
@@ -1104,6 +1213,8 @@ function wireEvents() {
   elements.previewDmButton?.addEventListener("click", previewAbsenceDmTargets);
   elements.sendDmButton?.addEventListener("click", sendAbsenceDm);
   elements.logoutButton?.addEventListener("click", logout);
+  elements.directAuthForm?.addEventListener("submit", startDirectAuth);
+  elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
   $("deleteAllBtn")?.addEventListener("click", () => {
     if (!confirm("ブラウザ上の部員データをすべて削除しますか？")) return;
