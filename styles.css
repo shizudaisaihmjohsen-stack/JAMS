@@ -5614,7 +5614,7 @@
     }
 
     #view-login .direct-auth-form .row {
-      grid-template-columns: minmax(130px, .72fr) minmax(220px, 1.28fr);
+      grid-template-columns: 1fr;
     }
 
     #view-login .direct-auth-form label {
@@ -5658,10 +5658,6 @@
     @media(max-width: 640px) {
       #view-login .login-action-box {
         width: 100%;
-      }
-
-      #view-login .direct-auth-form .row {
-        grid-template-columns: 1fr;
       }
 
       #view-login .direct-auth-form button {
