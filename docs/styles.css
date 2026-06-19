@@ -6631,7 +6631,7 @@
     #view-list .presence-checks .check {
       min-height: 34px !important;
       height: 34px !important;
-      padding: 6px 10px 6px 30px !important;
+      padding: 6px 10px 6px 28px !important;
       line-height: 1.2 !important;
       position: relative !important;
       align-items: center !important;
@@ -6657,10 +6657,10 @@
       position: absolute !important;
       left: 11px !important;
       top: 50% !important;
-      width: 14px !important;
-      height: 14px !important;
+      width: 13px !important;
+      height: 13px !important;
       transform: translateY(-50%) !important;
-      border: 1.5px solid #8a97a6 !important;
+      border: 1px solid #8a97a6 !important;
       border-radius: 3px !important;
       background: #fff !important;
     }
@@ -6671,10 +6671,10 @@
       position: absolute !important;
       left: 15px !important;
       top: 50% !important;
-      width: 6px !important;
-      height: 9px !important;
-      border-right: 2.5px solid #fff !important;
-      border-bottom: 2.5px solid #fff !important;
+      width: 5px !important;
+      height: 8px !important;
+      border-right: 2px solid #fff !important;
+      border-bottom: 2px solid #fff !important;
       transform: translateY(-58%) rotate(45deg) scale(0) !important;
       transform-origin: center !important;
     }
