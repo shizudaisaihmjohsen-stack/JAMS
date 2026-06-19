@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260619-5">
   </head>
   <body>
     <header class="site-header">
@@ -230,20 +230,46 @@
           <h2>管理</h2>
           <div class="screen-control-panel management-panel">
             <div class="management-status-row">
-              <p id="adminStatusText">管理者状態を確認していません。</p>
-              <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
+              <div>
+                <p class="management-eyebrow">ログイン状態</p>
+                <p id="adminStatusText">管理者状態を確認していません。</p>
+              </div>
+              <div>
+                <p class="management-eyebrow">データソース</p>
+                <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
+              </div>
             </div>
-            <div class="buttons management-primary-actions">
-              <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
-              <button class="secondary" type="button" id="saveMembersButton" disabled>DB保存</button>
-              <button class="secondary" type="button" id="exportButton">CSV出力</button>
-              <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
+
+            <div class="management-actions-grid">
+              <div class="management-action-group">
+                <p class="management-eyebrow">D1同期</p>
+                <div class="buttons management-primary-actions">
+                  <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
+                  <button class="secondary" type="button" id="saveMembersButton" disabled>DB保存</button>
+                </div>
+              </div>
+              <div class="management-action-group">
+                <p class="management-eyebrow">CSV</p>
+                <div class="buttons management-secondary-actions">
+                  <button class="secondary" type="button" id="exportButton">CSV出力</button>
+                  <label class="secondary" for="csvFileInput">CSV読込</label>
+                  <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+                </div>
+              </div>
+              <div class="management-action-group">
+                <p class="management-eyebrow">セッション</p>
+                <div class="buttons management-session-actions">
+                  <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
+                </div>
+              </div>
+              <div class="management-action-group management-danger-zone">
+                <p class="management-eyebrow">危険操作</p>
+                <div class="buttons">
+                  <button class="danger" type="button" id="deleteAllBtn">全データ削除</button>
+                </div>
+              </div>
             </div>
-            <div class="buttons management-secondary-actions">
-              <label class="secondary" for="csvFileInput">CSVを読み込む</label>
-              <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
-              <button class="danger" type="button" id="deleteAllBtn">全データ削除</button>
-            </div>
+
             <div class="management-link-panel">
               <label for="sGateInviteLink">S-GATE認証リンク</label>
               <div class="management-link-row">
@@ -254,14 +280,14 @@
             <div id="dataMessage"></div>
           </div>
 
-          <div class="derived">
-            <dl>
-              <dt>総部員</dt><dd id="totalCount">0</dd>
-              <dt>RC</dt><dd id="rcCount">0</dd>
-              <dt>SV</dt><dd id="svCount">0</dd>
-              <dt>JC</dt><dd id="jcCount">0</dd>
-              <dt>S-GATE管理者</dt><dd id="adminCount">0</dd>
-            </dl>
+          <div class="derived management-stats">
+            <div class="management-stat-grid">
+              <div class="management-stat"><span>総部員</span><strong id="totalCount">0</strong></div>
+              <div class="management-stat"><span>RC</span><strong id="rcCount">0</strong></div>
+              <div class="management-stat"><span>SV</span><strong id="svCount">0</strong></div>
+              <div class="management-stat"><span>JC</span><strong id="jcCount">0</strong></div>
+              <div class="management-stat"><span>S-GATE管理者</span><strong id="adminCount">0</strong></div>
+            </div>
           </div>
 
           <div class="screen-control-panel management-dm-panel">

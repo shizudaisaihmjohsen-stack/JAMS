@@ -5093,11 +5093,11 @@
       flex: 1 1 0 !important;
       min-width: 0 !important;
       width: auto !important;
-      min-height: 32px !important;
-      height: 32px !important;
-      padding: 5px 7px !important;
+      min-height: 36px !important;
+      height: 36px !important;
+      padding: 7px 7px 6px !important;
       font-size: 12px !important;
-      line-height: 1 !important;
+      line-height: 1.2 !important;
       border-radius: 999px !important;
       display: inline-flex !important;
       align-items: center !important;
@@ -5108,11 +5108,35 @@
 
     #view-list .absence-checks .check input,
     #view-list .presence-checks .check input {
+      appearance: none !important;
+      -webkit-appearance: none !important;
       flex: 0 0 auto !important;
-      width: 13px !important;
-      height: 13px !important;
+      width: 14px !important;
+      height: 14px !important;
       margin: 0 !important;
-      transform: translateY(0) !important;
+      transform: none !important;
+      border: 1px solid #888 !important;
+      border-radius: 3px !important;
+      background: #fff !important;
+      display: inline-grid !important;
+      place-content: center !important;
+      vertical-align: middle !important;
+    }
+
+    #view-list .absence-checks .check input::before,
+    #view-list .presence-checks .check input::before {
+      content: "" !important;
+      width: 8px !important;
+      height: 8px !important;
+      transform: scale(0) !important;
+      transition: transform .08s ease-in-out !important;
+      clip-path: polygon(14% 44%, 0 59%, 38% 100%, 100% 18%, 84% 4%, 36% 67%) !important;
+      background: var(--blue-deep) !important;
+    }
+
+    #view-list .absence-checks .check input:checked::before,
+    #view-list .presence-checks .check input:checked::before {
+      transform: scale(1) !important;
     }
 
     @media(max-width: 980px) {
@@ -5443,22 +5467,50 @@
 
     #view-list .absence-checks .check,
     #view-list .presence-checks .check {
-      height: 34px !important;
-      min-height: 34px !important;
+      height: 38px !important;
+      min-height: 38px !important;
       line-height: 1.2 !important;
-      padding-top: 5px !important;
-      padding-bottom: 5px !important;
+      padding-top: 7px !important;
+      padding-bottom: 7px !important;
       overflow: visible !important;
     }
 
     #view-list .absence-checks .check input,
     #view-list .presence-checks .check input {
+      appearance: none !important;
+      -webkit-appearance: none !important;
       align-self: center !important;
-      width: 14px !important;
-      height: 14px !important;
+      width: 16px !important;
+      height: 16px !important;
       margin-top: 0 !important;
       margin-bottom: 0 !important;
       transform: none !important;
+      border: 1.5px solid #7a8a9c !important;
+      border-radius: 3px !important;
+      background: #fff !important;
+      display: inline-grid !important;
+      place-content: center !important;
+    }
+
+    #view-list .absence-checks .check input::before,
+    #view-list .presence-checks .check input::before {
+      content: "" !important;
+      width: 9px !important;
+      height: 9px !important;
+      transform: scale(0) !important;
+      clip-path: polygon(14% 44%, 0 59%, 38% 100%, 100% 18%, 84% 4%, 36% 67%) !important;
+      background: #fff !important;
+    }
+
+    #view-list .absence-checks .check input:checked,
+    #view-list .presence-checks .check input:checked {
+      border-color: var(--blue-deep) !important;
+      background: var(--blue-deep) !important;
+    }
+
+    #view-list .absence-checks .check input:checked::before,
+    #view-list .presence-checks .check input:checked::before {
+      transform: scale(1) !important;
     }
 
     #view-settings .management-panel {
@@ -5921,5 +5973,197 @@
 
       #view-settings .management-status-row {
         grid-template-columns: 1fr;
+      }
+    }
+
+    #view-settings .management-panel {
+      padding: 24px 26px !important;
+      gap: 22px !important;
+      background: rgba(248, 253, 255, .86) !important;
+    }
+
+    #view-settings .management-eyebrow {
+      margin: 0 0 6px !important;
+      color: var(--blue-deep) !important;
+      font-size: 12px !important;
+      letter-spacing: .16em !important;
+      line-height: 1.3 !important;
+      font-weight: 700 !important;
+    }
+
+    #view-settings .management-status-row {
+      grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr) !important;
+      gap: 18px !important;
+      align-items: stretch !important;
+      padding-bottom: 18px !important;
+      border-bottom: 1px solid var(--line) !important;
+    }
+
+    #view-settings .management-status-row > div {
+      min-width: 0 !important;
+    }
+
+    #view-settings #adminStatusText,
+    #view-settings #dataSourceInfo {
+      min-height: 44px !important;
+      display: flex !important;
+      align-items: center !important;
+      margin: 0 !important;
+      padding: 10px 14px !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 4px !important;
+      background: #fff !important;
+      color: var(--ink) !important;
+      line-height: 1.45 !important;
+      overflow-wrap: anywhere !important;
+    }
+
+    #view-settings .management-actions-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 14px !important;
+      align-items: stretch !important;
+    }
+
+    #view-settings .management-action-group {
+      min-width: 0 !important;
+      padding: 14px !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 4px !important;
+      background: rgba(255, 255, 255, .78) !important;
+    }
+
+    #view-settings .management-action-group .buttons {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    #view-settings .management-session-actions,
+    #view-settings .management-danger-zone .buttons {
+      grid-template-columns: 1fr !important;
+    }
+
+    #view-settings .management-panel .buttons > button,
+    #view-settings .management-panel .buttons > label {
+      width: 100% !important;
+      min-width: 0 !important;
+      min-height: 42px !important;
+      padding: 9px 12px !important;
+      font-size: 14px !important;
+      letter-spacing: .08em !important;
+      border-radius: 4px !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-danger-zone {
+      background: rgba(255, 231, 239, .45) !important;
+      border-color: #f6c6d2 !important;
+    }
+
+    #view-settings .management-danger-zone .management-eyebrow {
+      color: #c44e68 !important;
+    }
+
+    #view-settings .management-link-panel {
+      margin-top: 0 !important;
+      padding-top: 20px !important;
+      border-top: 1px solid var(--line) !important;
+    }
+
+    #view-settings .management-link-panel label {
+      margin-bottom: 8px !important;
+    }
+
+    #view-settings .management-link-row {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 112px !important;
+      gap: 10px !important;
+      align-items: stretch !important;
+    }
+
+    #view-settings .management-link-row input {
+      min-width: 0 !important;
+      height: 42px !important;
+      padding: 9px 12px !important;
+      font-size: 13px !important;
+      color: var(--muted) !important;
+      background: #fff !important;
+    }
+
+    #view-settings #copySgateLinkButton {
+      min-height: 42px !important;
+      width: 112px !important;
+      padding: 9px 12px !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-stats {
+      margin-top: 18px !important;
+      padding: 14px !important;
+      background: rgba(248, 253, 255, .86) !important;
+    }
+
+    #view-settings .management-stat-grid {
+      display: grid !important;
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+
+    #view-settings .management-stat {
+      min-width: 0 !important;
+      padding: 13px 14px !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 4px !important;
+      background: #fff !important;
+    }
+
+    #view-settings .management-stat span {
+      display: block !important;
+      margin: 0 !important;
+      color: var(--muted) !important;
+      font-size: 12px !important;
+      letter-spacing: .08em !important;
+      white-space: nowrap !important;
+    }
+
+    #view-settings .management-stat strong {
+      display: block !important;
+      margin-top: 8px !important;
+      color: var(--ink) !important;
+      font-size: 22px !important;
+      line-height: 1.2 !important;
+      font-weight: 700 !important;
+    }
+
+    @media(max-width: 980px) {
+      #view-settings .management-actions-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+
+      #view-settings .management-stat-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media(max-width: 640px) {
+      #view-settings .management-panel {
+        padding: 18px 14px !important;
+      }
+
+      #view-settings .management-status-row,
+      #view-settings .management-actions-grid,
+      #view-settings .management-link-row {
+        grid-template-columns: 1fr !important;
+      }
+
+      #view-settings #copySgateLinkButton {
+        width: 100% !important;
+      }
+
+      #view-settings .management-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
     }
