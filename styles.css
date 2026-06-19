@@ -6233,3 +6233,97 @@
         grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
       }
     }
+
+    #view-register .assignment-options .check,
+    #view-register .attendance .check,
+    #view-list .absence-checks .check,
+    #view-list .presence-checks .check {
+      position: relative !important;
+      align-items: center !important;
+      overflow: visible !important;
+    }
+
+    #view-register .assignment-options .check,
+    #view-register .attendance .check {
+      padding-left: 42px !important;
+    }
+
+    #view-list .absence-checks .check,
+    #view-list .presence-checks .check {
+      height: 36px !important;
+      min-height: 36px !important;
+      padding: 7px 12px 7px 34px !important;
+    }
+
+    #view-register .assignment-options .check input,
+    #view-register .attendance .check input,
+    #view-list .absence-checks .check input,
+    #view-list .presence-checks .check input {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+    }
+
+    #view-register .assignment-options .check::before,
+    #view-register .attendance .check::before,
+    #view-list .absence-checks .check::before,
+    #view-list .presence-checks .check::before {
+      content: "" !important;
+      position: absolute !important;
+      left: 14px !important;
+      top: 50% !important;
+      width: 16px !important;
+      height: 16px !important;
+      transform: translateY(-50%) !important;
+      border: 1.5px solid #8a97a6 !important;
+      border-radius: 3px !important;
+      background: #fff !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55) !important;
+    }
+
+    #view-list .absence-checks .check::before,
+    #view-list .presence-checks .check::before {
+      left: 12px !important;
+    }
+
+    #view-register .assignment-options .check::after,
+    #view-register .attendance .check::after,
+    #view-list .absence-checks .check::after,
+    #view-list .presence-checks .check::after {
+      content: "" !important;
+      position: absolute !important;
+      left: 19px !important;
+      top: 50% !important;
+      width: 7px !important;
+      height: 11px !important;
+      border-right: 3px solid #fff !important;
+      border-bottom: 3px solid #fff !important;
+      transform: translateY(-58%) rotate(45deg) scale(0) !important;
+      transform-origin: center !important;
+    }
+
+    #view-list .absence-checks .check::after,
+    #view-list .presence-checks .check::after {
+      left: 17px !important;
+    }
+
+    #view-register .assignment-options .check:has(input:checked)::before,
+    #view-register .attendance .check:has(input:checked)::before,
+    #view-list .absence-checks .check:has(input:checked)::before,
+    #view-list .presence-checks .check:has(input:checked)::before {
+      border-color: var(--blue-deep) !important;
+      background: var(--blue-deep) !important;
+    }
+
+    #view-register .assignment-options .check:has(input:checked)::after,
+    #view-register .attendance .check:has(input:checked)::after,
+    #view-list .absence-checks .check:has(input:checked)::after,
+    #view-list .presence-checks .check:has(input:checked)::after {
+      transform: translateY(-58%) rotate(45deg) scale(1) !important;
+    }
