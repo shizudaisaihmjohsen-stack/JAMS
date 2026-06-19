@@ -6327,3 +6327,253 @@
     #view-list .presence-checks .check:has(input:checked)::after {
       transform: translateY(-58%) rotate(45deg) scale(1) !important;
     }
+
+    #view-settings .screen-control-panel,
+    #view-settings .derived,
+    #view-settings .table-wrap {
+      width: 100% !important;
+      max-width: none !important;
+    }
+
+    #view-settings .management-panel {
+      display: grid !important;
+      gap: 18px !important;
+      margin: 0 0 20px !important;
+      padding: 18px 20px !important;
+      background: rgba(248, 253, 255, .88) !important;
+      border-color: var(--line) !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-eyebrow {
+      margin: 0 0 7px !important;
+      color: var(--blue-deep) !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      line-height: 1.25 !important;
+      letter-spacing: .16em !important;
+    }
+
+    #view-settings .management-status-row {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 240px !important;
+      gap: 14px !important;
+      padding: 0 0 16px !important;
+      border-bottom: 1px solid var(--line) !important;
+    }
+
+    #view-settings #adminStatusText,
+    #view-settings #dataSourceInfo {
+      min-height: 38px !important;
+      padding: 8px 12px !important;
+      background: #fff !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 4px !important;
+      color: var(--ink) !important;
+      font-size: 15px !important;
+      font-weight: 700 !important;
+      line-height: 1.4 !important;
+    }
+
+    #view-settings .management-actions-grid {
+      display: grid !important;
+      grid-template-columns: minmax(230px, .95fr) minmax(230px, .95fr) minmax(140px, .55fr) minmax(170px, .65fr) !important;
+      gap: 12px !important;
+      align-items: stretch !important;
+    }
+
+    #view-settings .management-action-group {
+      min-width: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+    }
+
+    #view-settings .management-action-group .buttons {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    #view-settings .management-session-actions,
+    #view-settings .management-danger-zone .buttons {
+      grid-template-columns: 1fr !important;
+    }
+
+    #view-settings .management-panel .buttons > button,
+    #view-settings .management-panel .buttons > label {
+      min-height: 38px !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      padding: 8px 10px !important;
+      border-radius: 4px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      line-height: 1.2 !important;
+      letter-spacing: .04em !important;
+      white-space: nowrap !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-danger-zone {
+      padding-left: 12px !important;
+      border-left: 1px solid #f1b8c6 !important;
+    }
+
+    #view-settings .management-danger-zone .management-eyebrow {
+      color: #c44e68 !important;
+    }
+
+    #view-settings .management-link-panel {
+      margin: 0 !important;
+      padding: 16px 0 0 !important;
+      border-top: 1px solid var(--line) !important;
+    }
+
+    #view-settings .management-link-panel label {
+      display: block !important;
+      margin: 0 0 7px !important;
+      color: var(--blue-deep) !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      letter-spacing: .12em !important;
+    }
+
+    #view-settings .management-link-row {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 92px !important;
+      gap: 8px !important;
+      align-items: stretch !important;
+    }
+
+    #view-settings .management-link-row input {
+      min-width: 0 !important;
+      height: 38px !important;
+      padding: 8px 11px !important;
+      border-radius: 4px !important;
+      font-size: 13px !important;
+      color: var(--muted) !important;
+      background: #fff !important;
+    }
+
+    #view-settings #copySgateLinkButton {
+      width: 92px !important;
+      min-height: 38px !important;
+      padding: 8px 10px !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-stats {
+      margin: 0 0 18px !important;
+      padding: 12px !important;
+      background: rgba(248, 253, 255, .88) !important;
+      border: 1px solid var(--line) !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-stat-grid {
+      display: grid !important;
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+
+    #view-settings .management-stat {
+      padding: 11px 13px !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 4px !important;
+      background: #fff !important;
+    }
+
+    #view-settings .management-stat span {
+      color: var(--muted) !important;
+      font-size: 12px !important;
+      letter-spacing: .06em !important;
+    }
+
+    #view-settings .management-stat strong {
+      margin-top: 5px !important;
+      font-size: 22px !important;
+      line-height: 1.2 !important;
+    }
+
+    #view-settings .management-dm-panel {
+      width: 100% !important;
+      margin: 0 0 20px !important;
+      padding: 18px 20px !important;
+      display: grid !important;
+      gap: 14px !important;
+      background: rgba(248, 253, 255, .88) !important;
+      border-color: var(--line) !important;
+      box-shadow: none !important;
+    }
+
+    #view-settings .management-dm-head {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 240px !important;
+      gap: 16px !important;
+      align-items: end !important;
+    }
+
+    #view-settings .panel-kicker {
+      margin: 0 0 5px !important;
+      color: var(--blue-deep) !important;
+      font-size: 11px !important;
+      letter-spacing: .18em !important;
+    }
+
+    #view-settings .management-dm-panel h3 {
+      margin: 0 !important;
+      font-size: 17px !important;
+      font-weight: 700 !important;
+      letter-spacing: .06em !important;
+    }
+
+    #view-settings .management-dm-panel > label {
+      margin: 0 !important;
+      color: var(--blue-deep) !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      letter-spacing: .08em !important;
+    }
+
+    #view-settings .management-dm-panel textarea {
+      min-height: 118px !important;
+      font-size: 14px !important;
+      line-height: 1.7 !important;
+      background: #fff !important;
+    }
+
+    #view-settings .management-dm-actions {
+      justify-content: flex-end !important;
+      gap: 10px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-top: 0 !important;
+    }
+
+    #view-settings .management-dm-actions button {
+      min-width: 124px !important;
+      min-height: 38px !important;
+      padding: 8px 12px !important;
+      font-size: 13px !important;
+    }
+
+    @media(max-width: 980px) {
+      #view-settings .management-status-row,
+      #view-settings .management-actions-grid,
+      #view-settings .management-dm-head {
+        grid-template-columns: 1fr !important;
+      }
+
+      #view-settings .management-danger-zone {
+        padding-left: 0 !important;
+        border-left: 0 !important;
+      }
+
+      #view-settings .management-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }

@@ -443,7 +443,7 @@ function updateDataSourceDisplay(text) {
   const target = $("dataSourceInfo");
   if (!target) return;
   const stored = text || localStorage.getItem(DATA_SOURCE_KEY) || "未読込";
-  target.innerHTML = `現在の読込データ：<strong>${escapeHtml(stored)}</strong>`;
+  target.innerHTML = `<strong>${escapeHtml(stored)}</strong>`;
 }
 
 function assignmentGridForList(assignments = []) {
@@ -1173,15 +1173,15 @@ async function refreshAdminStatus() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "admin_status_failed");
     if (!data.authenticated) {
-      elements.adminStatusText.textContent = "Discord認証後、管理者IDに登録されている場合のみDB保存・読込できます。";
+      elements.adminStatusText.textContent = "未ログイン";
       elements.saveMembersButton.disabled = true;
       elements.loadMembersButton.disabled = true;
       if (elements.sendDmButton) elements.sendDmButton.disabled = true;
       return;
     }
     elements.adminStatusText.textContent = data.admin
-      ? `${data.username ?? "Discordユーザー"} として管理者ログイン中です。`
-      : `${data.username ?? "Discordユーザー"} としてログイン中ですが、管理者権限がありません。`;
+      ? `管理者: ${data.username ?? "Discordユーザー"}`
+      : `閲覧のみ: ${data.username ?? "Discordユーザー"}`;
     elements.saveMembersButton.disabled = !data.admin;
     elements.loadMembersButton.disabled = !data.admin;
     if (elements.sendDmButton) elements.sendDmButton.disabled = !data.admin;

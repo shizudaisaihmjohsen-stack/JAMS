@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260619-7">
+    <link rel="stylesheet" href="styles.css?v=20260619-8">
   </head>
   <body>
     <header class="site-header">
@@ -231,25 +231,25 @@
           <div class="screen-control-panel management-panel">
             <div class="management-status-row">
               <div>
-                <p class="management-eyebrow">ログイン状態</p>
+                <p class="management-eyebrow">ログイン</p>
                 <p id="adminStatusText">管理者状態を確認していません。</p>
               </div>
               <div>
-                <p class="management-eyebrow">データソース</p>
+                <p class="management-eyebrow">読込元</p>
                 <div id="dataSourceInfo" class="hint">現在の読込データ：未読込</div>
               </div>
             </div>
 
             <div class="management-actions-grid">
               <div class="management-action-group">
-                <p class="management-eyebrow">D1同期</p>
+                <p class="management-eyebrow">データベース</p>
                 <div class="buttons management-primary-actions">
                   <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
                   <button class="secondary" type="button" id="saveMembersButton" disabled>DB保存</button>
                 </div>
               </div>
               <div class="management-action-group">
-                <p class="management-eyebrow">CSV</p>
+                <p class="management-eyebrow">ファイル</p>
                 <div class="buttons management-secondary-actions">
                   <button class="secondary" type="button" id="exportButton">CSV出力</button>
                   <label class="secondary" for="csvFileInput">CSV読込</label>
@@ -257,13 +257,13 @@
                 </div>
               </div>
               <div class="management-action-group">
-                <p class="management-eyebrow">セッション</p>
+                <p class="management-eyebrow">アカウント</p>
                 <div class="buttons management-session-actions">
                   <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
                 </div>
               </div>
               <div class="management-action-group management-danger-zone">
-                <p class="management-eyebrow">危険操作</p>
+                <p class="management-eyebrow">リセット</p>
                 <div class="buttons">
                   <button class="danger" type="button" id="deleteAllBtn">全データ削除</button>
                 </div>
@@ -271,7 +271,7 @@
             </div>
 
             <div class="management-link-panel">
-              <label for="sGateInviteLink">S-GATE認証リンク</label>
+              <label for="sGateInviteLink">認証リンク</label>
               <div class="management-link-row">
                 <input id="sGateInviteLink" type="text" value="https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F" readonly>
                 <button class="secondary" type="button" id="copySgateLinkButton">コピー</button>
@@ -339,6 +339,6 @@
     </main>
 
     <script src="config.js?v=20260619"></script>
-    <script src="app.js?v=20260619-1"></script>
+    <script src="app.js?v=20260619-2"></script>
   </body>
 </html>
