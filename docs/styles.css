@@ -6167,3 +6167,69 @@
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
     }
+
+    #view-list .absence-checks .check,
+    #view-list .presence-checks .check {
+      height: 36px !important;
+      min-height: 36px !important;
+      padding: 7px 12px !important;
+      align-items: center !important;
+    }
+
+    #view-list .absence-checks .check input,
+    #view-list .presence-checks .check input {
+      appearance: auto !important;
+      -webkit-appearance: checkbox !important;
+      display: inline-block !important;
+      place-content: normal !important;
+      width: 16px !important;
+      height: 16px !important;
+      min-width: 16px !important;
+      max-width: 16px !important;
+      margin: 0 5px 0 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: initial !important;
+      accent-color: var(--blue-deep) !important;
+      transform: none !important;
+      vertical-align: middle !important;
+    }
+
+    #view-list .absence-checks .check input::before,
+    #view-list .presence-checks .check input::before {
+      content: none !important;
+    }
+
+    #view-settings .management-actions-grid {
+      grid-template-columns: repeat(4, minmax(180px, 1fr)) !important;
+    }
+
+    #view-settings .management-action-group {
+      padding: 16px 18px !important;
+    }
+
+    #view-settings .management-action-group .buttons {
+      gap: 10px !important;
+    }
+
+    #view-settings .management-panel .buttons > button,
+    #view-settings .management-panel .buttons > label {
+      min-height: 46px !important;
+      padding: 10px 12px !important;
+      font-size: 15px !important;
+      line-height: 1.2 !important;
+      letter-spacing: .03em !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: clip !important;
+    }
+
+    #view-settings .management-session-actions {
+      grid-template-columns: minmax(120px, 1fr) !important;
+    }
+
+    @media(max-width: 1120px) {
+      #view-settings .management-actions-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
+      }
+    }
