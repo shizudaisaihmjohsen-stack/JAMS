@@ -6577,3 +6577,115 @@
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
     }
+
+    #view-register .assignment-options {
+      grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
+      gap: 14px 18px !important;
+    }
+
+    #view-register .assignment-options .check {
+      min-height: 64px !important;
+      height: auto !important;
+      padding: 10px 14px !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      white-space: normal !important;
+      line-height: 1.35 !important;
+      word-break: keep-all !important;
+      overflow-wrap: anywhere !important;
+    }
+
+    #view-register .attendance .check {
+      padding: 11px 12px !important;
+      gap: 8px !important;
+      white-space: nowrap !important;
+    }
+
+    #view-register .assignment-options .check input,
+    #view-register .attendance .check input {
+      position: static !important;
+      flex: 0 0 auto !important;
+      width: auto !important;
+      height: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      appearance: auto !important;
+      -webkit-appearance: checkbox !important;
+      accent-color: var(--blue-deep) !important;
+      transform: none !important;
+    }
+
+    #view-register .assignment-options .check::before,
+    #view-register .assignment-options .check::after,
+    #view-register .attendance .check::before,
+    #view-register .attendance .check::after {
+      content: none !important;
+    }
+
+    #view-list .absence-checks .check,
+    #view-list .presence-checks .check {
+      min-height: 34px !important;
+      height: 34px !important;
+      padding: 6px 10px 6px 30px !important;
+      line-height: 1.2 !important;
+      position: relative !important;
+      align-items: center !important;
+      overflow: visible !important;
+    }
+
+    #view-list .absence-checks .check input,
+    #view-list .presence-checks .check input {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+    }
+
+    #view-list .absence-checks .check::before,
+    #view-list .presence-checks .check::before {
+      content: "" !important;
+      position: absolute !important;
+      left: 11px !important;
+      top: 50% !important;
+      width: 14px !important;
+      height: 14px !important;
+      transform: translateY(-50%) !important;
+      border: 1.5px solid #8a97a6 !important;
+      border-radius: 3px !important;
+      background: #fff !important;
+    }
+
+    #view-list .absence-checks .check::after,
+    #view-list .presence-checks .check::after {
+      content: "" !important;
+      position: absolute !important;
+      left: 15px !important;
+      top: 50% !important;
+      width: 6px !important;
+      height: 9px !important;
+      border-right: 2.5px solid #fff !important;
+      border-bottom: 2.5px solid #fff !important;
+      transform: translateY(-58%) rotate(45deg) scale(0) !important;
+      transform-origin: center !important;
+    }
+
+    #view-list .absence-checks .check:has(input:checked)::before,
+    #view-list .presence-checks .check:has(input:checked)::before {
+      border-color: var(--blue-deep) !important;
+      background: var(--blue-deep) !important;
+    }
+
+    #view-list .absence-checks .check:has(input:checked)::after,
+    #view-list .presence-checks .check:has(input:checked)::after {
+      transform: translateY(-58%) rotate(45deg) scale(1) !important;
+    }
