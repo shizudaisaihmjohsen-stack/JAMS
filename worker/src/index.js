@@ -2,6 +2,7 @@ const DISCORD_API_BASE = "https://discord.com/api/v10";
 const SESSION_COOKIE = "sgate_session";
 const STATE_COOKIE = "sgate_state";
 const RETURN_TO_COOKIE = "sgate_return_to";
+const APP_TOKEN_PARAM = "sgate_app_token";
 
 const roleNameToEnvKey = {
   "部長": "DISCORD_ROLE_DIRECTOR",
@@ -101,6 +102,10 @@ async function route(request, env, ctx) {
 
   if (request.method === "GET" && url.pathname === "/api/app/bootstrap") {
     return getAppBootstrap(request, env);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/app/session") {
+    return exchangeAppSession(request, env);
   }
 
   if (request.method === "POST" && url.pathname === "/api/admin/members/import") {
@@ -315,8 +320,14 @@ async function handleDiscordCallback(request, env) {
   await addGuildMemberBestEffort(user.id, token.access_token, env);
   await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
 
-  const session = await signSession({ userId: user.id, username: user.username, issuedAt: Date.now() }, env);
-  const headers = new Headers({ Location: `${frontendUrl}?status=login_ok` });
+  const sessionPayload = { userId: user.id, username: user.username, issuedAt: Date.now(), kind: "browser_session" };
+  const session = await signSession(sessionPayload, env);
+  const appExchangeToken = await signSession({ ...sessionPayload, kind: "app_exchange" }, env);
+  const returnUrl = appendQueryParams(frontendUrl, {
+    status: "login_ok",
+    [APP_TOKEN_PARAM]: appExchangeToken,
+  });
+  const headers = new Headers({ Location: returnUrl });
   headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
   headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
   headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, session, {
@@ -325,6 +336,31 @@ async function handleDiscordCallback(request, env) {
     sameSite: getSessionCookieSameSite(request, env),
   }));
   return new Response(null, { status: 302, headers });
+}
+
+async function exchangeAppSession(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const exchangeToken = String(body.token ?? "").trim();
+  const payload = await readSignedToken(exchangeToken, env, {
+    allowedKinds: ["app_exchange"],
+    maxAgeMs: 5 * 60 * 1000,
+  });
+  if (!payload) {
+    return json({ authenticated: false, error: "invalid_app_token" }, 401, request, env);
+  }
+
+  const session = await signSession({
+    userId: payload.userId,
+    username: payload.username,
+    issuedAt: Date.now(),
+    kind: "app_session",
+  }, env);
+
+  return json({
+    authenticated: true,
+    session,
+    expiresIn: 60 * 60 * 12,
+  }, 200, request, env);
 }
 
 function handleLogout(request, env) {
@@ -1412,20 +1448,48 @@ async function signSession(payload, env) {
 }
 
 async function readSignedSession(request, env) {
+  const bearer = readBearerToken(request);
+  if (bearer) {
+    return readSignedToken(bearer, env, {
+      allowedKinds: ["app_session"],
+      maxAgeMs: 60 * 60 * 12 * 1000,
+    });
+  }
+
   const value = readCookie(request, SESSION_COOKIE);
-  if (!value || !value.includes(".")) {
+  return readSignedToken(value, env, {
+    allowedKinds: ["browser_session", ""],
+    maxAgeMs: 60 * 60 * 12 * 1000,
+  });
+}
+
+async function readSignedToken(value, env, options = {}) {
+  try {
+    if (!value || !value.includes(".")) {
+      return null;
+    }
+    const [body, signature] = value.split(".", 2);
+    const expected = await hmac(body, getSessionSecret(env));
+    if (signature !== expected) {
+      return null;
+    }
+    const payload = JSON.parse(base64UrlDecode(body));
+    const kind = payload.kind || "";
+    const allowedKinds = options.allowedKinds || ["browser_session", "app_session", ""];
+    const maxAgeMs = options.maxAgeMs ?? 60 * 60 * 12 * 1000;
+    if (!allowedKinds.includes(kind) || !payload.userId || Date.now() - payload.issuedAt > maxAgeMs) {
+      return null;
+    }
+    return payload;
+  } catch {
     return null;
   }
-  const [body, signature] = value.split(".", 2);
-  const expected = await hmac(body, getSessionSecret(env));
-  if (signature !== expected) {
-    return null;
-  }
-  const payload = JSON.parse(base64UrlDecode(body));
-  if (!payload.userId || Date.now() - payload.issuedAt > 60 * 60 * 12 * 1000) {
-    return null;
-  }
-  return payload;
+}
+
+function readBearerToken(request) {
+  const header = request.headers.get("Authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
 }
 
 async function hmac(value, secret) {
@@ -1546,6 +1610,16 @@ function redirect(location) {
   return new Response(null, { status: 302, headers: { Location: location } });
 }
 
+function appendQueryParams(location, params) {
+  const url = new URL(location);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
 function corsPreflight(request, env) {
   return new Response(null, { status: 204, headers: corsHeaders(request, env) });
 }
@@ -1557,7 +1631,7 @@ function corsHeaders(request, env) {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     Vary: "Origin",
   };
 }

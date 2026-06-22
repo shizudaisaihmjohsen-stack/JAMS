@@ -1,6 +1,8 @@
 const CURRENT_YEAR = 2026;
 const STORAGE_KEY = "jams.members.v2";
 const DATA_SOURCE_KEY = "jams.dataSource.v2";
+const APP_SESSION_KEY = "jams.sgateAppSession.v1";
+const APP_TOKEN_PARAM = "sgate_app_token";
 const PUBLIC_JAMS_URL = "https://shizudaisaihmjohsen-stack.github.io/JAMS/";
 const MEETING_LABELS = ["新歓", "第1回", "第2回", "第3回", "第4回", "第5回"];
 
@@ -68,6 +70,70 @@ let directAuthEmail = "";
 
 const $ = (id) => document.getElementById(id);
 const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
+
+function getAppSessionToken() {
+  try {
+    return sessionStorage.getItem(APP_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setAppSessionToken(token) {
+  try {
+    if (token) {
+      sessionStorage.setItem(APP_SESSION_KEY, token);
+    } else {
+      sessionStorage.removeItem(APP_SESSION_KEY);
+    }
+  } catch {
+    // sessionStorageが使えない環境ではCookie方式へフォールバックします。
+  }
+}
+
+function consumeAppExchangeToken() {
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get(APP_TOKEN_PARAM) || "";
+  if (!token) return "";
+  url.searchParams.delete(APP_TOKEN_PARAM);
+  window.history.replaceState({}, document.title, url.toString());
+  return token;
+}
+
+function sgateApiUrl(path) {
+  return `${sGateBaseUrl.replace(/\/$/, "")}${path}`;
+}
+
+async function sgateFetch(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const appSession = getAppSessionToken();
+  if (appSession && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${appSession}`);
+  }
+  return fetch(sgateApiUrl(path), {
+    ...options,
+    credentials: "include",
+    headers,
+  });
+}
+
+async function establishAppSessionFromUrl() {
+  const exchangeToken = consumeAppExchangeToken();
+  if (!exchangeToken || !sGateBaseUrl) return;
+
+  const response = await fetch(sgateApiUrl("/api/app/session"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: exchangeToken }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.session) {
+    setAppSessionToken("");
+    throw new Error("ログイン情報の引き継ぎに失敗しました。もう一度ログインしてください。");
+  }
+  setAppSessionToken(data.session);
+}
 
 const elements = {
   mainNav: $("mainNav"),
@@ -723,13 +789,13 @@ async function logout() {
     elements.logoutButton.textContent = "ログアウト中";
   }
   try {
-    await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/sgate/logout`, {
+    await sgateFetch("/sgate/logout", {
       method: "POST",
-      credentials: "include",
     });
   } catch {
     // Cookie削除に失敗しても、画面側はログイン画面へ戻します。
   } finally {
+    setAppSessionToken("");
     appAccess = "guest";
     currentMemberNo = "";
     canEditMembers = false;
@@ -808,9 +874,8 @@ async function persistMembersToDatabase() {
   elements.saveMembersButton.disabled = true;
   elements.saveMembersButton.textContent = "保存中";
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/members/import`, {
+    const response = await sgateFetch("/api/admin/members/import", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ members }),
     });
@@ -832,9 +897,8 @@ async function persistMemberToDatabase(member) {
     return false;
   }
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/members/import`, {
+    const response = await sgateFetch("/api/admin/members/import", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ members: [member] }),
     });
@@ -853,9 +917,8 @@ async function deleteMemberFromDatabase(member) {
     return false;
   }
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/members/delete`, {
+    const response = await sgateFetch("/api/admin/members/delete", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ memberNo: member.memberNo, studentId: member.studentId }),
     });
@@ -878,9 +941,8 @@ async function loadMembersFromDatabase() {
   elements.loadMembersButton.disabled = true;
   elements.loadMembersButton.textContent = "読込中";
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/members`, {
+    const response = await sgateFetch("/api/admin/members", {
       method: "GET",
-      credentials: "include",
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || data.error || "読み込みに失敗しました。");
@@ -974,9 +1036,9 @@ async function loadAppBootstrap() {
   }
 
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/app/bootstrap`, {
+    await establishAppSessionFromUrl();
+    const response = await sgateFetch("/api/app/bootstrap", {
       method: "GET",
-      credentials: "include",
     });
     const data = await response.json();
     if (!data.authenticated) {
@@ -1015,7 +1077,7 @@ async function loadAppBootstrap() {
     members = [];
     applyAccessUi();
     setDirectAuthMode(false);
-    setLoginMessage(loginStatusMessage || `ログイン状態を確認できませんでした: ${error.message}`);
+    setLoginMessage(loginStatusMessage || "ログイン状態を確認できませんでした。再読み込みして、もう一度ログインしてください。");
     switchView("login");
   }
 }
@@ -1048,9 +1110,8 @@ async function startDirectAuth(event) {
   elements.directAuthStartButton.textContent = "送信中";
   setDirectAuthMessage("");
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/sgate/email/start`, {
+    const response = await sgateFetch("/api/sgate/email/start", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ studentId, email }),
     });
@@ -1080,9 +1141,8 @@ async function confirmDirectAuth(event) {
   elements.directAuthConfirmButton.textContent = "確認中";
   setDirectAuthMessage("");
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/sgate/email/confirm`, {
+    const response = await sgateFetch("/api/sgate/email/confirm", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: directAuthEmail, code }),
     });
@@ -1143,9 +1203,8 @@ async function sendAbsenceDm() {
   $("dmPreview").textContent = "DMを送信しています。画面を閉じずにお待ちください。";
   $("dmPreview").hidden = false;
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/meetings/absentees/dm`, {
+    const response = await sgateFetch("/api/admin/meetings/absentees/dm", {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ meeting, message }),
     });
@@ -1169,7 +1228,7 @@ async function refreshAdminStatus() {
   }
 
   try {
-    const response = await fetch(`${sGateBaseUrl.replace(/\/$/, "")}/api/admin/me`, { credentials: "include" });
+    const response = await sgateFetch("/api/admin/me");
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "admin_status_failed");
     if (!data.authenticated) {
