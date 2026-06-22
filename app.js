@@ -7,6 +7,7 @@ const PUBLIC_JAMS_URL = "https://shizudaisaihmjohsen-stack.github.io/JAMS/";
 const MEETING_LABELS = ["新歓", "第1回", "第2回", "第3回", "第4回", "第5回"];
 
 const ROLE_NAMES = {
+  chairperson: "委員長",
   director: "部長",
   manager: "課長",
   sGateAdmin: "[S-GATE] 管理者",
@@ -250,7 +251,9 @@ function parseCsv(text) {
 }
 
 function normalizeCommitteeType(value, position) {
-  const raw = normalize(value).toUpperCase();
+  const normalized = normalize(value);
+  if (normalized === ROLE_NAMES.chairperson) return ROLE_NAMES.chairperson;
+  const raw = normalized.toUpperCase();
   if (raw === "RC" || raw === "SV" || raw === "JC") return raw;
   const role = normalize(position);
   if (role === ROLE_NAMES.director || role === ROLE_NAMES.manager || role.includes("課長")) return "RC";
@@ -379,7 +382,7 @@ function assignMemberNumbers(sourceMembers) {
   let jcIndex = 0;
 
   sorted.forEach((member) => {
-    if (member.committeeType === "RC") {
+    if (member.committeeType === ROLE_NAMES.chairperson || member.committeeType === "RC") {
       rcIndex += 1;
       member.memberNo = `R${rcIndex}`;
     } else if (member.committeeType === "SV") {
@@ -595,7 +598,7 @@ function renderList() {
     return;
   }
 
-  const groupOrder = ["JC", "SV", "RC"];
+  const groupOrder = [ROLE_NAMES.chairperson, "JC", "SV", "RC"];
   $("memberList").innerHTML = groupOrder
     .map((groupLabel) => memberListTableHtml(groupLabel, displayMembers.filter((member) => member.committeeType === groupLabel)))
     .join("");
@@ -638,7 +641,7 @@ function profileHtml(member) {
     ? getAssignmentsFromTeam(member.team).map((assignment) => `<span class="id-assignment-text">${escapeHtml(assignment)}</span>`).join('<span class="id-separator">／</span>')
     : '<span class="id-muted">未設定</span>';
   const code = member.committeeType || "JC";
-  const committeeLabel = code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "補佐役員";
+  const committeeLabel = code === ROLE_NAMES.chairperson || code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "補佐役員";
   return `<div class="id-card-save-wrapper">
   <div class="id-card-image-area">
     <article class="id-card-profile">

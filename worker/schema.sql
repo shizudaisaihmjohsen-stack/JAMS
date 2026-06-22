@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS members (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   member_no TEXT,
-  committee_type TEXT NOT NULL CHECK (committee_type IN ('RC', 'SV', 'JC')),
+  committee_type TEXT NOT NULL CHECK (committee_type IN ('委員長', 'RC', 'SV', 'JC')),
   name TEXT NOT NULL,
   kana TEXT,
   line_name TEXT,

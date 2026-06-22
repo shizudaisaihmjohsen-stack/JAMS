@@ -5,6 +5,7 @@ const RETURN_TO_COOKIE = "sgate_return_to";
 const APP_TOKEN_PARAM = "sgate_app_token";
 
 const roleNameToEnvKey = {
+  "委員長": "DISCORD_ROLE_CHAIRPERSON",
   "部長": "DISCORD_ROLE_DIRECTOR",
   "課長": "DISCORD_ROLE_MANAGER",
   "S-GATE": "DISCORD_ROLE_S_GATE",
@@ -868,7 +869,7 @@ function getAccessLevel(session, member, env) {
     return "admin";
   }
   const committeeType = String(member?.committee_type ?? "");
-  if (committeeType === "RC" || committeeType === "SV") {
+  if (committeeType === "委員長" || committeeType === "RC" || committeeType === "SV") {
     return "staff";
   }
   if (committeeType === "JC") {
@@ -1042,7 +1043,7 @@ function buildVerifiedRoleNames(member) {
 }
 
 function normalizeCommitteeType(value) {
-  return value === "RC" || value === "SV" || value === "JC" ? value : "JC";
+  return value === "委員長" || value === "RC" || value === "SV" || value === "JC" ? value : "JC";
 }
 
 function normalizeTeamRoles(team) {
