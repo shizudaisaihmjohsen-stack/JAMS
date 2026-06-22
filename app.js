@@ -293,8 +293,8 @@ function assignmentClassName(assignment) {
 function assignmentDisplayNameForList(assignment) {
   const map = {
     "ポスター課": "ポスター",
-    "パンフレット課": "パンフレット",
-    "ウェブサイト広報課": "Webサイト",
+    "パンフレット課": "パンフ",
+    "ウェブサイト広報課": "ウェブ",
     "学内情報宣伝課": "学内宣",
     "学外情報宣伝課": "学外宣",
     "マスコット課": "マスコット",
