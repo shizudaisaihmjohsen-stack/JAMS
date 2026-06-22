@@ -6328,6 +6328,37 @@
       transform: translateY(-58%) rotate(45deg) scale(1) !important;
     }
 
+    #view-list .member-list-group {
+      margin-top: 28px;
+    }
+
+    #view-list .member-list-group:first-child {
+      margin-top: 0;
+    }
+
+    #view-list .member-list-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 4px 12px;
+    }
+
+    #view-list .member-list-group-head h3 {
+      margin: 0;
+      color: var(--blue-deep);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .16em;
+    }
+
+    #view-list .member-list-group-head span {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
     #view-settings .screen-control-panel,
     #view-settings .derived,
     #view-settings .table-wrap {

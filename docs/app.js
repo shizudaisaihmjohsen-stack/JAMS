@@ -532,6 +532,24 @@ function memberToRow(member) {
   </tr>`;
 }
 
+function memberListTableHtml(groupLabel, groupMembers) {
+  if (!groupMembers.length) return "";
+  return `<section class="member-list-group">
+    <div class="member-list-group-head">
+      <h3>${escapeHtml(groupLabel)}</h3>
+      <span>${groupMembers.length}名</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>部員No.</th><th>氏名</th><th>フリガナ</th><th>学籍番号</th><th>所属の課</th><th>操作</th></tr>
+        </thead>
+        <tbody>${groupMembers.map(memberToRow).join("")}</tbody>
+      </table>
+    </div>
+  </section>`;
+}
+
 function renderList() {
   let displayMembers = [...getMembers()];
   const q = normalize($("listFilter")?.value).toLowerCase();
@@ -577,7 +595,10 @@ function renderList() {
     return;
   }
 
-  $("memberList").innerHTML = `<div class="table-wrap"><table><thead><tr><th>部員No.</th><th>氏名</th><th>フリガナ</th><th>学籍番号</th><th>所属の課</th><th>操作</th></tr></thead><tbody>${displayMembers.map(memberToRow).join("")}</tbody></table></div>`;
+  const groupOrder = ["JC", "SV", "RC"];
+  $("memberList").innerHTML = groupOrder
+    .map((groupLabel) => memberListTableHtml(groupLabel, displayMembers.filter((member) => member.committeeType === groupLabel)))
+    .join("");
 }
 
 function meetingSummary(member) {
