@@ -318,7 +318,12 @@ async function handleDiscordCallback(request, env) {
   });
 
   await addGuildMemberBestEffort(user.id, token.access_token, env);
-  await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
+  const linkedMember = await findMemberByDiscordUserId(user.id, env);
+  if (linkedMember?.verified_at) {
+    await removeRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login verified");
+  } else {
+    await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
+  }
 
   const sessionPayload = { userId: user.id, username: user.username, issuedAt: Date.now(), kind: "browser_session" };
   const session = await signSession(sessionPayload, env);
@@ -1366,6 +1371,14 @@ async function removeRole(userId, roleId, env, reason) {
     method: "DELETE",
     headers: botHeaders(env, reason),
   }, [204, 404]);
+}
+
+async function removeRoleBestEffort(userId, roleId, env, reason) {
+  try {
+    await removeRole(userId, roleId, env, reason);
+  } catch (error) {
+    console.warn(`Skipping optional role removal: ${error.message}`);
+  }
 }
 
 function makeDiscordNickname(name) {
