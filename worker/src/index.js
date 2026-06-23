@@ -44,7 +44,6 @@ export default {
       console.error(error);
       return json({
         error: "internal_error",
-        detail: error instanceof Error ? error.message : String(error),
       }, 500, request, env);
     }
   },
@@ -324,6 +323,7 @@ async function handleDiscordCallback(request, env) {
   const sessionPayload = { userId: user.id, username: user.username, issuedAt: Date.now(), kind: "browser_session" };
   const session = await signSession(sessionPayload, env);
   const appExchangeToken = await signSession({ ...sessionPayload, kind: "app_exchange" }, env);
+  await storeAppExchangeToken(appExchangeToken, user.id, user.username, env);
   const returnUrl = appendQueryParams(frontendUrl, {
     status: "login_ok",
     [APP_TOKEN_PARAM]: appExchangeToken,
@@ -349,6 +349,10 @@ async function exchangeAppSession(request, env) {
   if (!payload) {
     return json({ authenticated: false, error: "invalid_app_token" }, 401, request, env);
   }
+  const consumed = await consumeAppExchangeToken(exchangeToken, payload, env);
+  if (!consumed) {
+    return json({ authenticated: false, error: "invalid_app_token" }, 401, request, env);
+  }
 
   const session = await signSession({
     userId: payload.userId,
@@ -362,6 +366,52 @@ async function exchangeAppSession(request, env) {
     session,
     expiresIn: 60 * 60 * 12,
   }, 200, request, env);
+}
+
+async function storeAppExchangeToken(token, userId, username, env) {
+  if (!env.DB) {
+    throw new Error("Missing required DB binding");
+  }
+  await cleanupExpiredAppExchangeTokens(env);
+  const tokenHash = await hashVerificationToken(token, env);
+  await env.DB.prepare(`
+    INSERT INTO app_exchange_tokens (token_hash, user_id, username, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(
+    tokenHash,
+    userId,
+    clean(username),
+    Date.now() + 5 * 60 * 1000,
+    Date.now(),
+  ).run();
+}
+
+async function consumeAppExchangeToken(token, payload, env) {
+  if (!env.DB) {
+    throw new Error("Missing required DB binding");
+  }
+  const tokenHash = await hashVerificationToken(token, env);
+  const stored = await env.DB.prepare(`
+    SELECT token_hash, user_id, expires_at, used_at
+    FROM app_exchange_tokens
+    WHERE token_hash = ?
+  `).bind(tokenHash).first();
+  if (!stored || stored.used_at || stored.expires_at < Date.now() || stored.user_id !== payload.userId) {
+    return false;
+  }
+  const result = await env.DB.prepare(`
+    UPDATE app_exchange_tokens
+    SET used_at = ?
+    WHERE token_hash = ? AND used_at IS NULL
+  `).bind(Date.now(), tokenHash).run();
+  return Number(result.meta?.changes ?? 0) > 0;
+}
+
+async function cleanupExpiredAppExchangeTokens(env) {
+  await env.DB.prepare(`
+    DELETE FROM app_exchange_tokens
+    WHERE expires_at < ?
+  `).bind(Date.now() - 10 * 60 * 1000).run();
 }
 
 function handleLogout(request, env) {
@@ -401,7 +451,7 @@ async function applyVerifiedRoles(request, env) {
   }
 
   const member = await request.json();
-  const roleNames = buildVerifiedRoleNames(member);
+  const roleNames = buildVerifiedRoleNames(member, session.userId, env);
   const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
 
   await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE verified");
@@ -460,7 +510,6 @@ async function startEmailVerification(request, env) {
     console.error("Email verification start failed", error);
     return json({
       error: "email_verification_start_failed",
-      detail: error instanceof Error ? error.message : String(error),
       code: error?.code ?? "",
     }, 500, request, env);
   }
@@ -513,7 +562,7 @@ async function confirmEmailVerification(request, env) {
     committeeType: member.committee_type,
     position: member.position,
     team: member.team,
-  });
+  }, session.userId, env);
   const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
   await setMemberNicknameBestEffort(session.userId, member.name, env, "S-GATE email verified");
   await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE email verified");
@@ -583,7 +632,7 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
     committeeType: member.committee_type,
     position: member.position,
     team: member.team,
-  });
+  }, discordUserId, env);
   const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
   await setMemberNicknameBestEffort(discordUserId, member.name, env, "S-GATE email verified");
   await removeRole(discordUserId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE email verified");
@@ -865,7 +914,7 @@ async function findMemberByDiscordUserId(discordUserId, env) {
 }
 
 function getAccessLevel(session, member, env) {
-  if (isAdminDiscordUser(session.userId, env) || String(member?.position ?? "").includes("部長")) {
+  if (isAdminDiscordUser(session.userId, env)) {
     return "admin";
   }
   const committeeType = String(member?.committee_type ?? "");
@@ -973,11 +1022,7 @@ async function requireAdminSession(request, env) {
 }
 
 async function isAdminSession(session, env) {
-  if (isAdminDiscordUser(session.userId, env)) {
-    return true;
-  }
-  const member = await findMemberByDiscordUserId(session.userId, env);
-  return String(member?.position ?? "").includes("部長");
+  return isAdminDiscordUser(session.userId, env);
 }
 
 function isAdminDiscordUser(userId, env) {
@@ -1024,12 +1069,12 @@ function validateMemberForImport(member, rowNumber) {
   return fields.length ? { rowNumber, fields } : null;
 }
 
-function buildVerifiedRoleNames(member) {
+function buildVerifiedRoleNames(member, discordUserId = "", env = {}) {
   const roleNames = ["[S-GATE] 認証済"];
   const committeeType = normalizeCommitteeType(member.committeeType);
   roleNames.push(committeeType);
 
-  if (String(member.position ?? "").includes("部長")) {
+  if (isAdminDiscordUser(discordUserId, env)) {
     roleNames.push("[S-GATE] 管理者");
   }
 
@@ -1558,10 +1603,7 @@ function sanitizeReturnTo(value, env) {
   if (!value) return "";
   try {
     const url = new URL(value);
-    const allowedOrigins = [
-      env.JAMS_FRONTEND_ORIGIN,
-      env.JAMS_FRONTEND_URL ? new URL(env.JAMS_FRONTEND_URL).origin : "",
-    ].filter(Boolean);
+    const allowedOrigins = getAllowedFrontendOrigins(env);
     if (!allowedOrigins.includes(url.origin)) {
       return "";
     }
@@ -1627,7 +1669,11 @@ function corsPreflight(request, env) {
 
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin");
-  const allowedOrigin = env.JAMS_FRONTEND_ORIGIN || origin || "*";
+  const workerOrigin = new URL(request.url).origin;
+  const allowedOrigins = [...getAllowedFrontendOrigins(env), workerOrigin];
+  const allowedOrigin = origin && allowedOrigins.includes(origin)
+    ? origin
+    : allowedOrigins[0] || workerOrigin;
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Credentials": "true",
@@ -1635,6 +1681,18 @@ function corsHeaders(request, env) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     Vary: "Origin",
   };
+}
+
+function getAllowedFrontendOrigins(env) {
+  const origins = [env.JAMS_FRONTEND_ORIGIN];
+  if (env.JAMS_FRONTEND_URL) {
+    try {
+      origins.push(new URL(env.JAMS_FRONTEND_URL).origin);
+    } catch {
+      // Invalid frontend URL is ignored; setup checks should catch this.
+    }
+  }
+  return [...new Set(origins.filter(Boolean))];
 }
 
 function cookie(request, name, value, options = {}) {
@@ -1661,6 +1719,7 @@ function assertRequiredEnv(env) {
     "DISCORD_CLIENT_SECRET",
     "DISCORD_BOT_TOKEN",
     "DISCORD_GUILD_ID",
+    "DISCORD_ROLE_CHAIRPERSON",
     "DISCORD_ROLE_S_GATE",
     "DISCORD_ROLE_S_GATE_UNVERIFIED",
     "DISCORD_ROLE_S_GATE_VERIFIED",
