@@ -64,6 +64,10 @@ async function route(request, env, ctx) {
     return handleDiscordInteraction(request, env, ctx);
   }
 
+  if (requiresTrustedOrigin(request, url) && !isTrustedOrigin(request, env)) {
+    return json({ error: "origin_not_allowed" }, 403, request, env);
+  }
+
   if (request.method === "GET" && url.pathname === "/sgate/login") {
     return startDiscordLogin(request, env);
   }
@@ -317,10 +321,49 @@ async function handleDiscordCallback(request, env) {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
 
-  await addGuildMemberBestEffort(user.id, token.access_token, env);
+  const guildJoin = await addGuildMemberBestEffort(user.id, token.access_token, env);
+  const guildMembership = guildJoin.ok
+    ? { isMember: true, apiAccessible: true, status: 0 }
+    : await checkGuildMembership(user.id, env);
+  const guildMemberConfirmed = guildJoin.ok || guildMembership.isMember;
+  const adminUser = isAdminDiscordUser(user.id, env);
+  if (!guildMemberConfirmed && !adminUser) {
+    const botAccessFailed = !guildMembership.apiAccessible
+      && [401, 403].includes(guildMembership.status);
+    const loginStatus = botAccessFailed ? "discord_bot_access_error" : "server_join_failed";
+    console.error(JSON.stringify({
+      message: "S-GATE guild membership could not be confirmed",
+      loginStatus,
+      joinStatus: guildJoin.status,
+      membershipStatus: guildMembership.status,
+    }));
+    const headers = new Headers({ Location: appendQueryParams(frontendUrl, { status: loginStatus }) });
+    headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+    headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+    headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: getSessionCookieSameSite(request, env),
+    }));
+    return new Response(null, { status: 302, headers });
+  }
+  if (!guildMemberConfirmed) {
+    console.warn(`Allowing S-GATE admin login without confirmed guild membership: ${user.id}`);
+  }
+
   const linkedMember = await findMemberByDiscordUserId(user.id, env);
   if (linkedMember?.verified_at) {
+    await setMemberNicknameBestEffort(user.id, linkedMember.name, env, "S-GATE login verified");
     await removeRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login verified");
+    const roleNames = buildVerifiedRoleNames({
+      committeeType: linkedMember.committee_type,
+      position: linkedMember.position,
+      team: linkedMember.team,
+    }, user.id, env);
+    const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
+    for (const roleId of roleIds) {
+      await addRoleBestEffort(user.id, roleId, env, "S-GATE login verified");
+    }
   } else {
     await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
   }
@@ -345,7 +388,7 @@ async function handleDiscordCallback(request, env) {
 }
 
 async function exchangeAppSession(request, env) {
-  const body = await request.json().catch(() => ({}));
+  const body = await readJson(request);
   const exchangeToken = String(body.token ?? "").trim();
   const payload = await readSignedToken(exchangeToken, env, {
     allowedKinds: ["app_exchange"],
@@ -448,20 +491,28 @@ async function applyVerifiedRoles(request, env) {
     return json({ error: "not_authenticated" }, 401, request, env);
   }
 
-  if (env.S_GATE_ALLOW_CLIENT_ROLE_APPLY !== "true") {
-    return json({
-      error: "verification_store_not_configured",
-      message: "部員照合DBを接続するまで、クライアント申告だけで認証済みロールを付与する処理は無効です。",
-    }, 409, request, env);
+  if (!env.DB) {
+    throw new Error("Missing required DB binding");
+  }
+  const member = await findMemberByDiscordUserId(session.userId, env);
+  if (!member?.verified_at) {
+    return json({ error: "member_not_verified" }, 403, request, env);
+  }
+  if (!await isGuildMember(session.userId, env)) {
+    return json({ error: "discord_server_join_required" }, 409, request, env);
   }
 
-  const member = await request.json();
-  const roleNames = buildVerifiedRoleNames(member, session.userId, env);
+  const roleNames = buildVerifiedRoleNames({
+    committeeType: member.committee_type,
+    position: member.position,
+    team: member.team,
+  }, session.userId, env);
   const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
 
-  await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE verified");
+  await setMemberNicknameBestEffort(session.userId, member.name, env, "S-GATE verified role sync");
+  await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE verified role sync");
   for (const roleId of roleIds) {
-    await addRole(session.userId, roleId, env, "S-GATE verified");
+    await addRole(session.userId, roleId, env, "S-GATE verified role sync");
   }
 
   return json({ ok: true, roles: roleNames }, 200, request, env);
@@ -475,7 +526,7 @@ async function startEmailVerification(request, env) {
     }
     assertEmailEnv(env);
 
-    const body = await request.json();
+    const body = await readJson(request);
     const email = normalizeEmail(body.email);
     const studentId = String(body.studentId ?? "").trim().toUpperCase();
     if (!isValidEmail(email) || !isAllowedEmailDomain(email, env)) {
@@ -527,7 +578,7 @@ async function confirmEmailVerification(request, env) {
   }
   assertEmailEnv(env);
 
-  const body = await request.json();
+  const body = await readJson(request);
   const email = normalizeEmail(body.email);
   const code = String(body.code ?? "").trim();
   if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
@@ -555,6 +606,9 @@ async function confirmEmailVerification(request, env) {
   const member = await findMemberForEmail(email, "", env);
   if (!member) {
     return json({ error: "member_not_found" }, 404, request, env);
+  }
+  if (!await isGuildMember(session.userId, env)) {
+    return json({ error: "discord_server_join_required" }, 409, request, env);
   }
 
   await env.DB.prepare(`
@@ -590,7 +644,7 @@ async function confirmEmailVerification(request, env) {
 
 async function confirmEmailVerificationByToken(request, env) {
   assertEmailEnv(env);
-  const body = await request.json();
+  const body = await readJson(request);
   const token = String(body.token ?? "").trim();
   const code = String(body.code ?? "").trim();
   if (!token || !/^\d{6}$/.test(code)) {
@@ -625,6 +679,9 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
   const member = await findMemberForEmail(email, "", env);
   if (!member) {
     throw httpError("member_not_found", 404);
+  }
+  if (!await isGuildMember(discordUserId, env)) {
+    throw httpError("discord_server_join_required", 409);
   }
 
   await env.DB.prepare(`
@@ -708,7 +765,7 @@ async function getAppBootstrap(request, env) {
 
 async function importMembers(request, env) {
   const session = await requireAdminSession(request, env);
-  const body = await request.json();
+  const body = await readJson(request);
   const sourceMembers = Array.isArray(body.members) ? body.members : [];
   if (!sourceMembers.length) {
     return json({ error: "no_members" }, 400, request, env);
@@ -819,7 +876,7 @@ async function listMembers(request, env) {
 
 async function deleteMember(request, env) {
   const session = await requireAdminSession(request, env);
-  const body = await request.json();
+  const body = await readJson(request);
   const studentId = clean(body.studentId).toUpperCase();
   const memberNo = clean(body.memberNo);
   if (!studentId && !memberNo) {
@@ -938,7 +995,7 @@ async function sendAbsenceDirectMessages(request, env) {
     throw new Error("Missing required env: DISCORD_BOT_TOKEN");
   }
 
-  const body = await request.json();
+  const body = await readJson(request);
   const meeting = String(body.meeting ?? "").trim();
   const message = String(body.message ?? "").trim();
   const meetingColumn = meetingNameToColumn[meeting];
@@ -1344,9 +1401,35 @@ async function addGuildMember(userId, accessToken, env) {
 async function addGuildMemberBestEffort(userId, accessToken, env) {
   try {
     await addGuildMember(userId, accessToken, env);
+    return { ok: true };
   } catch (error) {
     console.warn(`Skipping optional guild member add: ${error.message}`);
+    return {
+      ok: false,
+      status: Number(error?.httpStatus ?? 0),
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
+}
+
+async function checkGuildMembership(userId, env) {
+  try {
+    await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`, {
+      method: "GET",
+      headers: botHeaders(env),
+    }, [200]);
+    return { isMember: true, apiAccessible: true, status: 200 };
+  } catch (error) {
+    const status = Number(error?.httpStatus ?? 0);
+    if (status === 404) {
+      return { isMember: false, apiAccessible: true, status };
+    }
+    return { isMember: false, apiAccessible: false, status };
+  }
+}
+
+async function isGuildMember(userId, env) {
+  return (await checkGuildMembership(userId, env)).isMember;
 }
 
 async function addRole(userId, roleId, env, reason) {
@@ -1433,7 +1516,9 @@ async function discordFetch(path, init = {}, okStatuses = [200]) {
   const response = await fetch(`${DISCORD_API_BASE}${path}`, init);
   if (!okStatuses.includes(response.status)) {
     const detail = await response.text();
-    throw new Error(`Discord API error ${response.status}: ${detail}`);
+    const error = new Error(`Discord API error ${response.status}: ${detail}`);
+    error.httpStatus = response.status;
+    throw error;
   }
   if (response.status === 204) {
     return null;
@@ -1678,6 +1763,28 @@ function appendQueryParams(location, params) {
 
 function corsPreflight(request, env) {
   return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+}
+
+function requiresTrustedOrigin(request, url) {
+  if (request.method !== "POST") return false;
+  if (url.pathname === "/discord/interactions") return false;
+  return url.pathname === "/sgate/logout" || url.pathname.startsWith("/api/");
+}
+
+function isTrustedOrigin(request, env) {
+  const origin = request.headers.get("Origin");
+  if (!origin) return true;
+  const workerOrigin = new URL(request.url).origin;
+  const allowedOrigins = [...getAllowedFrontendOrigins(env), workerOrigin];
+  return allowedOrigins.includes(origin);
+}
+
+async function readJson(request) {
+  try {
+    return await request.json();
+  } catch {
+    throw httpError("invalid_json", 400);
+  }
 }
 
 function corsHeaders(request, env) {

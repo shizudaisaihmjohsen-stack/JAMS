@@ -1044,6 +1044,8 @@ function consumeLoginStatus() {
     login_ok: "",
     state_error: "認証を完了できませんでした。もう一度Discordログインを実行してください。",
     discord_error: "Discord認証がキャンセルされました。もう一度Discordログインを実行してください。",
+    server_join_failed: "Discordログインは完了しましたが、サーバー参加に失敗しました。Discordアカウントのメール認証・電話番号認証、参加制限、BANの有無を確認してください。",
+    discord_bot_access_error: "現在、S-GATE BotがDiscordサーバーへ接続できないため、認証を完了できません。サーバー管理者へ連絡してください。",
   };
   return messages[status] ?? "認証処理でエラーが発生しました。時間をおいて、もう一度実行してください。";
 }
@@ -1078,7 +1080,7 @@ async function loadAppBootstrap() {
       appAccess = "none";
       members = [];
       applyAccessUi();
-      setLoginMessage("");
+      setLoginMessage(loginStatusMessage);
       setDirectAuthMode(true);
       switchView("login");
       return;
@@ -1113,6 +1115,7 @@ function directAuthErrorMessage(errorCode) {
     invalid_code: "認証コードを確認してください。",
     invalid_or_expired_code: "認証コードが違うか、有効期限が切れています。",
     member_not_found: "入力内容と一致する部員データが見つかりませんでした。",
+    discord_server_join_required: "Discordサーバーへの参加が確認できませんでした。Discordアカウントの認証状態を確認し、もう一度S-GATE認証リンクからログインしてください。",
   };
   return messages[errorCode] ?? "認証処理に失敗しました。時間を置いてもう一度お試しください。";
 }
