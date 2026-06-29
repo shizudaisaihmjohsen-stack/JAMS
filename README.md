@@ -194,4 +194,10 @@ npm run d1:migrate
 npx wrangler d1 execute jams --file=worker/migrations/0001_add_sv_committee_type.sql --remote
 ```
 
+部員No.の重複防止を有効にする場合は、既存の重複を解消してから次を実行します。
+
+```sh
+npm run d1:migrate:member-no
+```
+
 部員照合には `members.email` が必要です。JAMS画面でCSVを読み込んだあと、管理者は `DB保存` からD1へ名簿を保存できます。保存済み名簿は `DB読込` で画面に読み戻せます。

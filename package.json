@@ -9,6 +9,7 @@
     "build:pages": "node scripts/build-pages.mjs",
     "test:auth": "node scripts/test-auth-flow.mjs",
     "d1:migrate:auth-v2": "npx wrangler d1 execute jams --file=worker/migrations/0007_rebuild_auth_flow.sql --remote",
+    "d1:migrate:member-no": "npx wrangler d1 execute jams --file=worker/migrations/0008_enforce_unique_member_no.sql --remote",
     "discord:commands": "node scripts/register-discord-commands.mjs",
     "d1:migrate": "npx wrangler d1 execute jams --file=worker/schema.sql --remote",
     "dev:worker": "npx wrangler dev",

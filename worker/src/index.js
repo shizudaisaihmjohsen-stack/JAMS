@@ -818,6 +818,38 @@ async function importMembers(request, env) {
     return json({ error: "validation_failed", errors }, 400, request, env);
   }
 
+  const memberNoCounts = new Map();
+  for (const member of normalizedMembers) {
+    memberNoCounts.set(member.memberNo, (memberNoCounts.get(member.memberNo) ?? 0) + 1);
+  }
+  const duplicateMemberNos = [...memberNoCounts]
+    .filter(([, count]) => count > 1)
+    .map(([memberNo]) => memberNo);
+  if (duplicateMemberNos.length) {
+    return json({ error: "duplicate_member_no", memberNos: duplicateMemberNos }, 409, request, env);
+  }
+
+  const existingMembers = await env.DB.prepare(`
+    SELECT member_no, student_id
+    FROM members
+    WHERE member_no IS NOT NULL AND trim(member_no) <> ''
+  `).all();
+  const existingOwnerByMemberNo = new Map(
+    (existingMembers.results ?? []).map((member) => [member.member_no, member.student_id]),
+  );
+  const conflictingMemberNos = normalizedMembers
+    .filter((member) => {
+      const existingStudentId = existingOwnerByMemberNo.get(member.memberNo);
+      return existingStudentId && existingStudentId !== member.studentId;
+    })
+    .map((member) => member.memberNo);
+  if (conflictingMemberNos.length) {
+    return json({
+      error: "member_no_conflict",
+      memberNos: [...new Set(conflictingMemberNos)],
+    }, 409, request, env);
+  }
+
   const statements = normalizedMembers.map((member) => env.DB.prepare(`
     INSERT INTO members (
       member_no,
@@ -1158,7 +1190,10 @@ function normalizeMemberForImport(member) {
 
 function validateMemberForImport(member, rowNumber) {
   const fields = [];
-  if (!member.memberNo) fields.push("部員No.");
+  const expectedMemberNoPrefix = member.committeeType === "委員長" || member.committeeType === "RC"
+    ? "R"
+    : member.committeeType === "SV" ? "S" : "J";
+  if (!new RegExp(`^${expectedMemberNoPrefix}[1-9]\\d*$`).test(member.memberNo)) fields.push("部員No.");
   if (!member.name) fields.push("氏名");
   if (!/^[0-9A-Z]{8}$/.test(member.studentId)) fields.push("学籍番号");
   if (member.email && !isValidEmail(member.email)) fields.push("大学メール");

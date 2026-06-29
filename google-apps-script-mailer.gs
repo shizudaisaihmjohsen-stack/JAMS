@@ -1,6 +1,13 @@
 const SCRIPT_SECRET =
   PropertiesService.getScriptProperties().getProperty("GOOGLE_APPS_SCRIPT_MAIL_SECRET") ||
   PropertiesService.getScriptProperties().getProperty("S_GATE_MAIL_SECRET");
+const ALLOWED_EMAIL_DOMAINS = String(
+  PropertiesService.getScriptProperties().getProperty("S_GATE_ALLOWED_EMAIL_DOMAINS") ||
+  "shizuoka.ac.jp",
+)
+  .split(",")
+  .map((domain) => domain.trim().toLowerCase())
+  .filter(Boolean);
 
 function doPost(e) {
   try {
@@ -13,7 +20,15 @@ function doPost(e) {
     const html = String(payload.html || "");
     const from = normalizeFrom(payload.from);
 
-    if (!to || !subject || !text) {
+    if (
+      !isValidEmail(to) ||
+      !isAllowedDomain(to) ||
+      hasHeaderBreak(subject) ||
+      hasHeaderBreak(from.name) ||
+      hasHeaderBreak(from.email) ||
+      !subject ||
+      !text
+    ) {
       return json({ ok: false, error: "missing_required_fields" }, 400);
     }
 
@@ -65,6 +80,19 @@ function normalizeFrom(value) {
     };
   }
   return { name: "", email: raw };
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function isAllowedDomain(value) {
+  const domain = String(value || "").trim().toLowerCase().split("@").pop();
+  return ALLOWED_EMAIL_DOMAINS.length > 0 && ALLOWED_EMAIL_DOMAINS.includes(domain);
+}
+
+function hasHeaderBreak(value) {
+  return /[\r\n]/.test(String(value || ""));
 }
 
 function json(body) {

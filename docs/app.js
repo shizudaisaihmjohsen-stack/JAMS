@@ -400,21 +400,39 @@ function normalizeMember(member) {
 
 function assignMemberNumbers(sourceMembers) {
   const sorted = sourceMembers.map(normalizeMember).sort((a, b) => a.studentId.localeCompare(b.studentId, "en"));
-  let rcIndex = 0;
-  let svIndex = 0;
-  let jcIndex = 0;
+  const usedNumbers = new Map([
+    ["R", new Set()],
+    ["S", new Set()],
+    ["J", new Set()],
+  ]);
+
+  const prefixFor = (member) => {
+    if (member.committeeType === ROLE_NAMES.chairperson || member.committeeType === "RC") return "R";
+    if (member.committeeType === "SV") return "S";
+    return "J";
+  };
+
+  // Keep issued numbers stable. Only missing, invalid, or duplicate numbers are allocated again.
+  sorted.forEach((member) => {
+    const prefix = prefixFor(member);
+    const match = String(member.memberNo || "").match(/^([RSJ])(\d+)$/i);
+    const number = match && match[1].toUpperCase() === prefix ? Number(match[2]) : 0;
+    if (number > 0 && !usedNumbers.get(prefix).has(number)) {
+      usedNumbers.get(prefix).add(number);
+      member.memberNo = `${prefix}${number}`;
+      return;
+    }
+    member.memberNo = "";
+  });
 
   sorted.forEach((member) => {
-    if (member.committeeType === ROLE_NAMES.chairperson || member.committeeType === "RC") {
-      rcIndex += 1;
-      member.memberNo = `R${rcIndex}`;
-    } else if (member.committeeType === "SV") {
-      svIndex += 1;
-      member.memberNo = `S${svIndex}`;
-    } else {
-      jcIndex += 1;
-      member.memberNo = `J${jcIndex}`;
-    }
+    if (member.memberNo) return;
+    const prefix = prefixFor(member);
+    const used = usedNumbers.get(prefix);
+    let number = 1;
+    while (used.has(number)) number += 1;
+    used.add(number);
+    member.memberNo = `${prefix}${number}`;
   });
 
   return sorted;
