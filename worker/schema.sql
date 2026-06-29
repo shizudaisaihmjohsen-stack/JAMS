@@ -28,21 +28,25 @@ CREATE TABLE IF NOT EXISTS members (
 CREATE INDEX IF NOT EXISTS idx_members_email ON members(email);
 CREATE INDEX IF NOT EXISTS idx_members_discord_user_id ON members(discord_user_id);
 
-CREATE TABLE IF NOT EXISTS email_verification_codes (
-  email TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS email_verification_challenges (
+  challenge_id TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
   discord_user_id TEXT NOT NULL,
   discord_username TEXT,
   code_hash TEXT NOT NULL,
   token_hash TEXT,
   expires_at INTEGER NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  UNIQUE(email, discord_user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_email_verification_codes_discord_user_id
-  ON email_verification_codes(discord_user_id);
-CREATE INDEX IF NOT EXISTS idx_email_verification_codes_token_hash
-  ON email_verification_codes(token_hash);
+CREATE INDEX IF NOT EXISTS idx_email_verification_challenges_discord_user_id
+  ON email_verification_challenges(discord_user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_challenges_token_hash
+  ON email_verification_challenges(token_hash);
+CREATE INDEX IF NOT EXISTS idx_email_verification_challenges_expires_at
+  ON email_verification_challenges(expires_at);
 
 CREATE TABLE IF NOT EXISTS app_exchange_tokens (
   token_hash TEXT PRIMARY KEY,
@@ -55,3 +59,14 @@ CREATE TABLE IF NOT EXISTS app_exchange_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_app_exchange_tokens_expires_at
   ON app_exchange_tokens(expires_at);
+
+CREATE TABLE IF NOT EXISTS oauth_login_states (
+  state_hash TEXT PRIMARY KEY,
+  return_to TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_login_states_expires_at
+  ON oauth_login_states(expires_at);

@@ -3,6 +3,8 @@ const SESSION_COOKIE = "sgate_session";
 const STATE_COOKIE = "sgate_state";
 const RETURN_TO_COOKIE = "sgate_return_to";
 const APP_TOKEN_PARAM = "sgate_app_token";
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const APP_EXCHANGE_TTL_MS = 5 * 60 * 1000;
 
 const roleNameToEnvKey = {
   "委員長": "DISCORD_ROLE_CHAIRPERSON",
@@ -69,7 +71,7 @@ async function route(request, env, ctx) {
   }
 
   if (request.method === "GET" && url.pathname === "/sgate/login") {
-    return startDiscordLogin(request, env);
+    return startDiscordLogin(request, env, ctx);
   }
 
   if (request.method === "GET" && url.pathname === "/sgate/callback") {
@@ -232,18 +234,14 @@ async function processAuthModalSubmit(interaction, env) {
     const codeHash = await hashVerificationCode(email, code, env);
     const tokenHash = await hashVerificationToken(token, env);
 
-    await env.DB.prepare(`
-      INSERT INTO email_verification_codes (email, discord_user_id, discord_username, code_hash, token_hash, expires_at, attempts, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?)
-      ON CONFLICT(email) DO UPDATE SET
-        discord_user_id = excluded.discord_user_id,
-        discord_username = excluded.discord_username,
-        code_hash = excluded.code_hash,
-        token_hash = excluded.token_hash,
-        expires_at = excluded.expires_at,
-        attempts = 0,
-        created_at = excluded.created_at
-    `).bind(email, discordUserId, discordUsername, codeHash, tokenHash, expiresAt, Date.now()).run();
+    await storeEmailVerificationChallenge({
+      email,
+      discordUserId,
+      discordUsername,
+      codeHash,
+      tokenHash,
+      expiresAt,
+    }, env);
 
     await sendVerificationEmail(email, code, env);
     const verifyUrl = `${getVerificationUrlFromEnv(env)}?token=${encodeURIComponent(token)}`;
@@ -270,12 +268,22 @@ function getModalValues(interaction) {
   return values;
 }
 
-async function startDiscordLogin(request, env) {
+async function startDiscordLogin(request, env, ctx) {
   assertRequiredEnv(env);
   const url = new URL(request.url);
   const redirectUri = getRedirectUri(request, env);
-  const state = crypto.randomUUID();
-  const returnTo = sanitizeReturnTo(url.searchParams.get("return_to"), env);
+  const state = generateVerificationToken();
+  const returnTo = sanitizeReturnTo(url.searchParams.get("return_to"), env) || getFrontendUrl(request, env);
+  try {
+    await storeOAuthLoginState(state, returnTo, env);
+  } catch (error) {
+    logAuthFailure("oauth_state_create", error);
+    return loginResultRedirect(request, env, returnTo, "login_service_failed");
+  }
+  ctx.waitUntil(cleanupExpiredOAuthLoginStates(env).catch((error) => {
+    logAuthFailure("oauth_state_cleanup", error);
+  }));
+
   const authorizeUrl = new URL("https://discord.com/oauth2/authorize");
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", env.DISCORD_CLIENT_ID);
@@ -284,127 +292,117 @@ async function startDiscordLogin(request, env) {
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("prompt", "consent");
 
-  const headers = new Headers({
-    Location: authorizeUrl.toString(),
-  });
-  headers.append("Set-Cookie", cookie(request, STATE_COOKIE, state, { maxAge: 600, httpOnly: true, sameSite: "Lax" }));
-  if (returnTo) {
-    headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, encodeURIComponent(returnTo), { maxAge: 600, httpOnly: true, sameSite: "Lax" }));
-  } else {
-    headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
-  }
-
   return new Response(null, {
     status: 302,
-    headers,
+    headers: {
+      Location: authorizeUrl.toString(),
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
   });
 }
 
 async function handleDiscordCallback(request, env) {
   assertRequiredEnv(env);
   const url = new URL(request.url);
-  const frontendUrl = getLoginReturnUrl(request, env);
-  const error = url.searchParams.get("error");
-  if (error) {
-    return redirect(`${frontendUrl}?status=discord_error`);
+  const state = url.searchParams.get("state");
+  let loginState;
+  try {
+    loginState = state ? await consumeOAuthLoginState(state, env) : null;
+  } catch (error) {
+    logAuthFailure("oauth_state_consume", error);
+    return loginResultRedirect(request, env, getFrontendUrl(request, env), "login_service_failed");
+  }
+  const frontendUrl = loginState?.return_to || getFrontendUrl(request, env);
+  if (!loginState) {
+    return loginResultRedirect(request, env, frontendUrl, "state_error");
+  }
+
+  if (url.searchParams.get("error")) {
+    return loginResultRedirect(request, env, frontendUrl, "discord_error");
   }
 
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const expectedState = readCookie(request, STATE_COOKIE);
-  if (!code || !state || state !== expectedState) {
-    return redirect(`${frontendUrl}?status=state_error`);
+  if (!code) {
+    return loginResultRedirect(request, env, frontendUrl, "oauth_exchange_failed");
   }
 
-  const token = await exchangeCodeForToken(code, getRedirectUri(request, env), env);
-  const user = await discordFetch("/users/@me", {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  });
-
-  const guildJoin = await addGuildMemberBestEffort(user.id, token.access_token, env);
-  const guildMembership = guildJoin.ok
-    ? { isMember: true, apiAccessible: true, status: 0 }
-    : await checkGuildMembership(user.id, env);
-  const guildMemberConfirmed = guildJoin.ok || guildMembership.isMember;
-  const adminUser = isAdminDiscordUser(user.id, env);
-  if (!guildMemberConfirmed && !adminUser) {
-    const botAccessFailed = !guildMembership.apiAccessible
-      && [401, 403].includes(guildMembership.status);
-    const loginStatus = botAccessFailed ? "discord_bot_access_error" : "server_join_failed";
-    console.error(JSON.stringify({
-      message: "S-GATE guild membership could not be confirmed",
-      loginStatus,
-      joinStatus: guildJoin.status,
-      membershipStatus: guildMembership.status,
-    }));
-    const headers = new Headers({ Location: appendQueryParams(frontendUrl, { status: loginStatus }) });
-    headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
-    headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
-    headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, "", {
-      maxAge: 0,
-      httpOnly: true,
-      sameSite: getSessionCookieSameSite(request, env),
-    }));
-    return new Response(null, { status: 302, headers });
-  }
-  if (!guildMemberConfirmed) {
-    console.warn(`Allowing S-GATE admin login without confirmed guild membership: ${user.id}`);
+  let token;
+  try {
+    token = await exchangeCodeForToken(code, getRedirectUri(request, env), env);
+  } catch (error) {
+    logAuthFailure("oauth_token_exchange", error);
+    return loginResultRedirect(request, env, frontendUrl, "oauth_exchange_failed");
   }
 
-  const linkedMember = await findMemberByDiscordUserId(user.id, env);
-  if (linkedMember?.verified_at) {
-    await setMemberNicknameBestEffort(user.id, linkedMember.name, env, "S-GATE login verified");
-    await removeRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login verified");
-    const roleNames = buildVerifiedRoleNames({
-      committeeType: linkedMember.committee_type,
-      position: linkedMember.position,
-      team: linkedMember.team,
-    }, user.id, env);
-    const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
-    for (const roleId of roleIds) {
-      await addRoleBestEffort(user.id, roleId, env, "S-GATE login verified");
+  let user;
+  try {
+    user = await discordFetch("/users/@me", {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+    });
+  } catch (error) {
+    logAuthFailure("discord_user_lookup", error);
+    return loginResultRedirect(request, env, frontendUrl, "discord_user_failed");
+  }
+
+  try {
+    const guildJoin = await addGuildMemberBestEffort(user.id, token.access_token, env);
+    const guildMembership = guildJoin.ok
+      ? { isMember: true, apiAccessible: true, status: 0 }
+      : await checkGuildMembership(user.id, env);
+    const guildMemberConfirmed = guildJoin.ok || guildMembership.isMember;
+    const adminUser = isAdminDiscordUser(user.id, env);
+    if (!guildMemberConfirmed && !adminUser) {
+      const botAccessFailed = !guildMembership.apiAccessible
+        && [401, 403].includes(guildMembership.status);
+      const loginStatus = botAccessFailed ? "discord_bot_access_error" : "server_join_failed";
+      console.error(JSON.stringify({
+        message: "S-GATE guild membership could not be confirmed",
+        loginStatus,
+        joinStatus: guildJoin.status,
+        membershipStatus: guildMembership.status,
+      }));
+      return loginResultRedirect(request, env, frontendUrl, loginStatus);
     }
-  } else {
-    await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
-  }
+    if (!guildMemberConfirmed) {
+      console.warn("Allowing S-GATE admin login without confirmed guild membership");
+    }
 
-  const sessionPayload = { userId: user.id, username: user.username, issuedAt: Date.now(), kind: "browser_session" };
-  const session = await signSession(sessionPayload, env);
-  const appExchangeToken = await signSession({ ...sessionPayload, kind: "app_exchange" }, env);
-  await storeAppExchangeToken(appExchangeToken, user.id, user.username, env);
-  const returnUrl = appendQueryParams(frontendUrl, {
-    status: "login_ok",
-    [APP_TOKEN_PARAM]: appExchangeToken,
-  });
-  const headers = new Headers({ Location: returnUrl });
-  headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
-  headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
-  headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, session, {
-    maxAge: 60 * 60 * 12,
-    httpOnly: true,
-    sameSite: getSessionCookieSameSite(request, env),
-  }));
-  return new Response(null, { status: 302, headers });
+    const linkedMember = await findMemberByDiscordUserId(user.id, env);
+    if (linkedMember?.verified_at) {
+      await syncVerifiedDiscordMember(user.id, linkedMember, env, "S-GATE login verified");
+    } else {
+      await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
+    }
+
+    const sessionPayload = { userId: user.id, username: user.username, issuedAt: Date.now(), kind: "browser_session" };
+    const session = await signSession(sessionPayload, env);
+    const appExchangeToken = generateVerificationToken();
+    await storeAppExchangeToken(appExchangeToken, user.id, user.username, env);
+    return loginResultRedirect(request, env, frontendUrl, "login_ok", {
+      session,
+      appExchangeToken,
+    });
+  } catch (error) {
+    logAuthFailure("login_finalize", error);
+    return loginResultRedirect(request, env, frontendUrl, "login_service_failed");
+  }
 }
 
 async function exchangeAppSession(request, env) {
   const body = await readJson(request);
   const exchangeToken = String(body.token ?? "").trim();
-  const payload = await readSignedToken(exchangeToken, env, {
-    allowedKinds: ["app_exchange"],
-    maxAgeMs: 5 * 60 * 1000,
-  });
-  if (!payload) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(exchangeToken)) {
     return json({ authenticated: false, error: "invalid_app_token" }, 401, request, env);
   }
-  const consumed = await consumeAppExchangeToken(exchangeToken, payload, env);
-  if (!consumed) {
+  const exchange = await consumeAppExchangeToken(exchangeToken, env);
+  if (!exchange) {
     return json({ authenticated: false, error: "invalid_app_token" }, 401, request, env);
   }
 
   const session = await signSession({
-    userId: payload.userId,
-    username: payload.username,
+    userId: exchange.user_id,
+    username: exchange.username,
     issuedAt: Date.now(),
     kind: "app_session",
   }, env);
@@ -429,12 +427,12 @@ async function storeAppExchangeToken(token, userId, username, env) {
     tokenHash,
     userId,
     clean(username),
-    Date.now() + 5 * 60 * 1000,
+    Date.now() + APP_EXCHANGE_TTL_MS,
     Date.now(),
   ).run();
 }
 
-async function consumeAppExchangeToken(token, payload, env) {
+async function consumeAppExchangeToken(token, env) {
   if (!env.DB) {
     throw new Error("Missing required DB binding");
   }
@@ -444,15 +442,16 @@ async function consumeAppExchangeToken(token, payload, env) {
     FROM app_exchange_tokens
     WHERE token_hash = ?
   `).bind(tokenHash).first();
-  if (!stored || stored.used_at || stored.expires_at < Date.now() || stored.user_id !== payload.userId) {
-    return false;
+  const now = Date.now();
+  if (!stored || stored.used_at || stored.expires_at < now) {
+    return null;
   }
   const result = await env.DB.prepare(`
     UPDATE app_exchange_tokens
     SET used_at = ?
-    WHERE token_hash = ? AND used_at IS NULL
-  `).bind(Date.now(), tokenHash).run();
-  return Number(result.meta?.changes ?? 0) > 0;
+    WHERE token_hash = ? AND used_at IS NULL AND expires_at >= ?
+  `).bind(now, tokenHash, now).run();
+  return Number(result.meta?.changes ?? 0) > 0 ? stored : null;
 }
 
 async function cleanupExpiredAppExchangeTokens(env) {
@@ -460,6 +459,41 @@ async function cleanupExpiredAppExchangeTokens(env) {
     DELETE FROM app_exchange_tokens
     WHERE expires_at < ?
   `).bind(Date.now() - 10 * 60 * 1000).run();
+}
+
+async function storeOAuthLoginState(state, returnTo, env) {
+  const stateHash = await hashOAuthState(state, env);
+  const now = Date.now();
+  await env.DB.prepare(`
+    INSERT INTO oauth_login_states (state_hash, return_to, expires_at, created_at)
+    VALUES (?, ?, ?, ?)
+  `).bind(stateHash, returnTo, now + OAUTH_STATE_TTL_MS, now).run();
+}
+
+async function consumeOAuthLoginState(state, env) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(state)) return null;
+  const stateHash = await hashOAuthState(state, env);
+  const now = Date.now();
+  const stored = await env.DB.prepare(`
+    SELECT return_to, expires_at, used_at
+    FROM oauth_login_states
+    WHERE state_hash = ?
+  `).bind(stateHash).first();
+  if (!stored || stored.used_at || stored.expires_at < now) return null;
+
+  const result = await env.DB.prepare(`
+    UPDATE oauth_login_states
+    SET used_at = ?
+    WHERE state_hash = ? AND used_at IS NULL AND expires_at >= ?
+  `).bind(now, stateHash, now).run();
+  return Number(result.meta?.changes ?? 0) > 0 ? stored : null;
+}
+
+async function cleanupExpiredOAuthLoginStates(env) {
+  await env.DB.prepare(`
+    DELETE FROM oauth_login_states
+    WHERE expires_at < ?
+  `).bind(Date.now() - OAUTH_STATE_TTL_MS).run();
 }
 
 function handleLogout(request, env) {
@@ -502,20 +536,49 @@ async function applyVerifiedRoles(request, env) {
     return json({ error: "discord_server_join_required" }, 409, request, env);
   }
 
-  const roleNames = buildVerifiedRoleNames({
-    committeeType: member.committee_type,
-    position: member.position,
-    team: member.team,
-  }, session.userId, env);
-  const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
+  const sync = await syncVerifiedDiscordMember(session.userId, member, env, "S-GATE verified role sync");
+  return json({ ok: true, roles: sync.roleNames, warnings: sync.warnings }, 200, request, env);
+}
 
-  await setMemberNicknameBestEffort(session.userId, member.name, env, "S-GATE verified role sync");
-  await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE verified role sync");
-  for (const roleId of roleIds) {
-    await addRole(session.userId, roleId, env, "S-GATE verified role sync");
-  }
-
-  return json({ ok: true, roles: roleNames }, 200, request, env);
+async function storeEmailVerificationChallenge(challenge, env) {
+  const challengeId = crypto.randomUUID();
+  const now = Date.now();
+  await env.DB.prepare(`
+    INSERT INTO email_verification_challenges (
+      challenge_id,
+      email,
+      discord_user_id,
+      discord_username,
+      code_hash,
+      token_hash,
+      expires_at,
+      attempts,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+    ON CONFLICT(email, discord_user_id) DO UPDATE SET
+      challenge_id = excluded.challenge_id,
+      discord_username = excluded.discord_username,
+      code_hash = excluded.code_hash,
+      token_hash = excluded.token_hash,
+      expires_at = excluded.expires_at,
+      attempts = 0,
+      created_at = excluded.created_at
+  `).bind(
+    challengeId,
+    challenge.email,
+    challenge.discordUserId,
+    clean(challenge.discordUsername),
+    challenge.codeHash,
+    challenge.tokenHash,
+    challenge.expiresAt,
+    now,
+  ).run();
+  await env.DB.prepare(`
+    DELETE FROM email_verification_challenges
+    WHERE expires_at < ?
+  `).bind(now - 10 * 60 * 1000).run();
+  return challengeId;
 }
 
 async function startEmailVerification(request, env) {
@@ -545,17 +608,14 @@ async function startEmailVerification(request, env) {
     const expiresAt = Date.now() + 10 * 60 * 1000;
     const codeHash = await hashVerificationCode(email, code, env);
 
-    await env.DB.prepare(`
-      INSERT INTO email_verification_codes (email, discord_user_id, discord_username, code_hash, expires_at, attempts, created_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?)
-      ON CONFLICT(email) DO UPDATE SET
-        discord_user_id = excluded.discord_user_id,
-        discord_username = excluded.discord_username,
-        code_hash = excluded.code_hash,
-        expires_at = excluded.expires_at,
-        attempts = 0,
-        created_at = excluded.created_at
-    `).bind(email, session.userId, clean(session.username), codeHash, expiresAt, Date.now()).run();
+    await storeEmailVerificationChallenge({
+      email,
+      discordUserId: session.userId,
+      discordUsername: clean(session.username),
+      codeHash,
+      tokenHash: null,
+      expiresAt,
+    }, env);
 
     await sendVerificationEmail(email, code, env);
     return json({
@@ -586,60 +646,29 @@ async function confirmEmailVerification(request, env) {
   }
 
   const stored = await env.DB.prepare(`
-    SELECT email, discord_user_id, discord_username, code_hash, expires_at, attempts
-    FROM email_verification_codes
-    WHERE email = ?
-  `).bind(email).first();
+    SELECT challenge_id, email, discord_user_id, discord_username, code_hash, expires_at, attempts
+    FROM email_verification_challenges
+    WHERE email = ? AND discord_user_id = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(email, session.userId).first();
 
-  if (!stored || stored.discord_user_id !== session.userId || stored.expires_at < Date.now() || stored.attempts >= 5) {
+  if (!stored || stored.expires_at < Date.now() || stored.attempts >= 5) {
     return json({ error: "invalid_or_expired_code" }, 400, request, env);
   }
 
   const expectedHash = await hashVerificationCode(email, code, env);
-  if (stored.code_hash !== expectedHash) {
+  if (!await constantTimeEqual(stored.code_hash, expectedHash)) {
     await env.DB.prepare(`
-      UPDATE email_verification_codes SET attempts = attempts + 1 WHERE email = ?
-    `).bind(email).run();
+      UPDATE email_verification_challenges SET attempts = attempts + 1 WHERE challenge_id = ?
+    `).bind(stored.challenge_id).run();
     return json({ error: "invalid_or_expired_code" }, 400, request, env);
   }
 
-  const member = await findMemberForEmail(email, "", env);
-  if (!member) {
-    return json({ error: "member_not_found" }, 404, request, env);
-  }
-  if (!await isGuildMember(session.userId, env)) {
-    return json({ error: "discord_server_join_required" }, 409, request, env);
-  }
-
-  await env.DB.prepare(`
-    UPDATE members
-    SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).bind(session.userId, clean(session.username), new Date().toISOString(), member.id).run();
-
-  const roleNames = buildVerifiedRoleNames({
-    committeeType: member.committee_type,
-    position: member.position,
-    team: member.team,
-  }, session.userId, env);
-  const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
-  await setMemberNicknameBestEffort(session.userId, member.name, env, "S-GATE email verified");
-  await removeRole(session.userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE email verified");
-  for (const roleId of roleIds) {
-    await addRole(session.userId, roleId, env, "S-GATE email verified");
-  }
-
-  await env.DB.prepare(`DELETE FROM email_verification_codes WHERE email = ?`).bind(email).run();
-  return json({
-    ok: true,
-    member: {
-      memberNo: member.member_no,
-      name: member.name,
-      committeeType: member.committee_type,
-      team: member.team,
-    },
-    roles: roleNames,
-  }, 200, request, env);
+  const result = await completeMemberVerification(email, session.userId, session.username, env);
+  await env.DB.prepare(`DELETE FROM email_verification_challenges WHERE challenge_id = ?`)
+    .bind(stored.challenge_id).run();
+  return json(result, 200, request, env);
 }
 
 async function confirmEmailVerificationByToken(request, env) {
@@ -653,8 +682,8 @@ async function confirmEmailVerificationByToken(request, env) {
 
   const tokenHash = await hashVerificationToken(token, env);
   const stored = await env.DB.prepare(`
-    SELECT email, discord_user_id, discord_username, code_hash, expires_at, attempts
-    FROM email_verification_codes
+    SELECT challenge_id, email, discord_user_id, discord_username, code_hash, expires_at, attempts
+    FROM email_verification_challenges
     WHERE token_hash = ?
   `).bind(tokenHash).first();
 
@@ -663,15 +692,16 @@ async function confirmEmailVerificationByToken(request, env) {
   }
 
   const expectedHash = await hashVerificationCode(stored.email, code, env);
-  if (stored.code_hash !== expectedHash) {
+  if (!await constantTimeEqual(stored.code_hash, expectedHash)) {
     await env.DB.prepare(`
-      UPDATE email_verification_codes SET attempts = attempts + 1 WHERE email = ?
-    `).bind(stored.email).run();
+      UPDATE email_verification_challenges SET attempts = attempts + 1 WHERE challenge_id = ?
+    `).bind(stored.challenge_id).run();
     return json({ error: "invalid_or_expired_code" }, 400, request, env);
   }
 
   const result = await completeMemberVerification(stored.email, stored.discord_user_id, stored.discord_username, env);
-  await env.DB.prepare(`DELETE FROM email_verification_codes WHERE email = ?`).bind(stored.email).run();
+  await env.DB.prepare(`DELETE FROM email_verification_challenges WHERE challenge_id = ?`)
+    .bind(stored.challenge_id).run();
   return json(result, 200, request, env);
 }
 
@@ -680,27 +710,32 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
   if (!member) {
     throw httpError("member_not_found", 404);
   }
-  if (!await isGuildMember(discordUserId, env)) {
+  const linkedMember = await findMemberByDiscordUserId(discordUserId, env);
+  if (linkedMember && linkedMember.id !== member.id) {
+    throw httpError("discord_account_already_linked", 409);
+  }
+  if (member.discord_user_id && member.discord_user_id !== discordUserId) {
+    throw httpError("member_already_linked", 409);
+  }
+
+  const membership = await checkGuildMembership(discordUserId, env);
+  if (!membership.apiAccessible) {
+    throw httpError("discord_bot_access_error", 503);
+  }
+  if (!membership.isMember) {
     throw httpError("discord_server_join_required", 409);
   }
 
-  await env.DB.prepare(`
+  const update = await env.DB.prepare(`
     UPDATE members
     SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).bind(discordUserId, clean(discordUsername), new Date().toISOString(), member.id).run();
-
-  const roleNames = buildVerifiedRoleNames({
-    committeeType: member.committee_type,
-    position: member.position,
-    team: member.team,
-  }, discordUserId, env);
-  const roleIds = roleNames.map((name) => env[roleNameToEnvKey[name]]).filter(Boolean);
-  await setMemberNicknameBestEffort(discordUserId, member.name, env, "S-GATE email verified");
-  await removeRole(discordUserId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE email verified");
-  for (const roleId of roleIds) {
-    await addRole(discordUserId, roleId, env, "S-GATE email verified");
+    WHERE id = ? AND (discord_user_id IS NULL OR discord_user_id = ?)
+  `).bind(discordUserId, clean(discordUsername), new Date().toISOString(), member.id, discordUserId).run();
+  if (Number(update.meta?.changes ?? 0) !== 1) {
+    throw httpError("member_already_linked", 409);
   }
+
+  const sync = await syncVerifiedDiscordMember(discordUserId, member, env, "S-GATE email verified");
 
   return {
     ok: true,
@@ -710,7 +745,8 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
       committeeType: member.committee_type,
       team: member.team,
     },
-    roles: roleNames,
+    roles: sync.roleNames,
+    warnings: sync.warnings,
   };
 }
 
@@ -899,7 +935,7 @@ async function deleteMember(request, env) {
     env.DB.prepare("DELETE FROM members WHERE id = ?").bind(existing.id),
   ];
   if (existing.email) {
-    statements.push(env.DB.prepare("DELETE FROM email_verification_codes WHERE lower(email) = ?").bind(normalizeEmail(existing.email)));
+    statements.push(env.DB.prepare("DELETE FROM email_verification_challenges WHERE lower(email) = ?").bind(normalizeEmail(existing.email)));
   }
   await env.DB.batch(statements);
   return json({
@@ -1352,6 +1388,10 @@ async function hashVerificationToken(token, env) {
   return hmac(`token:${token}`, getSessionSecret(env));
 }
 
+async function hashOAuthState(state, env) {
+  return hmac(`oauth-state:${state}`, getSessionSecret(env));
+}
+
 function normalizeEmail(value) {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -1432,6 +1472,38 @@ async function isGuildMember(userId, env) {
   return (await checkGuildMembership(userId, env)).isMember;
 }
 
+async function syncVerifiedDiscordMember(userId, member, env, reason) {
+  const roleNames = buildVerifiedRoleNames({
+    committeeType: member.committee_type,
+    position: member.position,
+    team: member.team,
+  }, userId, env);
+  const roles = roleNames
+    .map((name) => ({ name, id: env[roleNameToEnvKey[name]] }))
+    .filter((role) => role.id);
+  const warnings = [];
+
+  if (!await setMemberNicknameBestEffort(userId, member.name, env, reason)) {
+    warnings.push("nickname_sync_failed");
+  }
+  if (!await removeRoleBestEffort(userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, reason)) {
+    warnings.push("unverified_role_removal_failed");
+  }
+  for (const role of roles) {
+    if (!await addRoleBestEffort(userId, role.id, env, reason)) {
+      warnings.push(`role_sync_failed:${role.name}`);
+    }
+  }
+  if (warnings.length) {
+    console.warn(JSON.stringify({
+      message: "S-GATE authentication completed with Discord sync warnings",
+      warningCount: warnings.length,
+      warnings,
+    }));
+  }
+  return { roleNames, warnings };
+}
+
 async function addRole(userId, roleId, env, reason) {
   if (!roleId) return;
   await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}/roles/${roleId}`, {
@@ -1443,8 +1515,10 @@ async function addRole(userId, roleId, env, reason) {
 async function addRoleBestEffort(userId, roleId, env, reason) {
   try {
     await addRole(userId, roleId, env, reason);
+    return true;
   } catch (error) {
     console.warn(`Skipping optional role assignment: ${error.message}`);
+    return false;
   }
 }
 
@@ -1459,8 +1533,10 @@ async function removeRole(userId, roleId, env, reason) {
 async function removeRoleBestEffort(userId, roleId, env, reason) {
   try {
     await removeRole(userId, roleId, env, reason);
+    return true;
   } catch (error) {
     console.warn(`Skipping optional role removal: ${error.message}`);
+    return false;
   }
 }
 
@@ -1481,8 +1557,10 @@ async function setMemberNickname(userId, name, env, reason) {
 async function setMemberNicknameBestEffort(userId, name, env, reason) {
   try {
     await setMemberNickname(userId, name, env, reason);
+    return true;
   } catch (error) {
     console.warn(`Skipping optional nickname update: ${error.message}`);
+    return false;
   }
 }
 
@@ -1614,7 +1692,7 @@ async function readSignedToken(value, env, options = {}) {
     }
     const [body, signature] = value.split(".", 2);
     const expected = await hmac(body, getSessionSecret(env));
-    if (signature !== expected) {
+    if (!await constantTimeEqual(signature, expected)) {
       return null;
     }
     const payload = JSON.parse(base64UrlDecode(body));
@@ -1646,6 +1724,21 @@ async function hmac(value, secret) {
   );
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return base64UrlEncode(new Uint8Array(signature));
+}
+
+async function constantTimeEqual(left, right) {
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(String(left ?? ""))),
+    crypto.subtle.digest("SHA-256", encoder.encode(String(right ?? ""))),
+  ]);
+  const leftBytes = new Uint8Array(leftHash);
+  const rightBytes = new Uint8Array(rightHash);
+  let difference = 0;
+  for (let index = 0; index < leftBytes.length; index += 1) {
+    difference |= leftBytes[index] ^ rightBytes[index];
+  }
+  return difference === 0;
 }
 
 function base64UrlEncode(value) {
@@ -1684,19 +1777,6 @@ function getFrontendUrl(request, env) {
   return `${url.origin}/index.html`;
 }
 
-function getLoginReturnUrl(request, env) {
-  const stored = readCookie(request, RETURN_TO_COOKIE);
-  if (!stored) {
-    return getFrontendUrl(request, env);
-  }
-  try {
-    const decoded = decodeURIComponent(stored);
-    return sanitizeReturnTo(decoded, env) || getFrontendUrl(request, env);
-  } catch {
-    return getFrontendUrl(request, env);
-  }
-}
-
 function sanitizeReturnTo(value, env) {
   if (!value) return "";
   try {
@@ -1705,6 +1785,8 @@ function sanitizeReturnTo(value, env) {
     if (!allowedOrigins.includes(url.origin)) {
       return "";
     }
+    url.searchParams.delete("status");
+    url.searchParams.delete(APP_TOKEN_PARAM);
     url.hash = "";
     return url.toString();
   } catch {
@@ -1747,8 +1829,36 @@ function json(data, status, request, env) {
   });
 }
 
-function redirect(location) {
-  return new Response(null, { status: 302, headers: { Location: location } });
+function loginResultRedirect(request, env, frontendUrl, status, options = {}) {
+  const location = appendQueryParams(frontendUrl, {
+    status,
+    [APP_TOKEN_PARAM]: options.appExchangeToken,
+  });
+  const headers = new Headers({
+    Location: location,
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+  });
+  headers.append("Set-Cookie", cookie(request, STATE_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+  headers.append("Set-Cookie", cookie(request, RETURN_TO_COOKIE, "", { maxAge: 0, httpOnly: true, sameSite: "Lax" }));
+  if (options.session) {
+    headers.append("Set-Cookie", cookie(request, SESSION_COOKIE, options.session, {
+      maxAge: 60 * 60 * 12,
+      httpOnly: true,
+      sameSite: getSessionCookieSameSite(request, env),
+    }));
+  }
+  return new Response(null, { status: 302, headers });
+}
+
+function logAuthFailure(stage, error, details = {}) {
+  console.error(JSON.stringify({
+    message: "S-GATE authentication step failed",
+    stage,
+    httpStatus: Number(error?.httpStatus ?? 0),
+    error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+    ...details,
+  }));
 }
 
 function appendQueryParams(location, params) {
@@ -1835,6 +1945,7 @@ function readCookie(request, name) {
 
 function assertRequiredEnv(env) {
   const required = [
+    "DB",
     "DISCORD_CLIENT_ID",
     "DISCORD_CLIENT_SECRET",
     "DISCORD_BOT_TOKEN",

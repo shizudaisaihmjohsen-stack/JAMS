@@ -2,6 +2,7 @@ const CURRENT_YEAR = 2026;
 const STORAGE_KEY = "jams.members.v2";
 const DATA_SOURCE_KEY = "jams.dataSource.v2";
 const APP_SESSION_KEY = "jams.sgateAppSession.v1";
+const PENDING_APP_TOKEN_KEY = "jams.sgatePendingAppToken.v2";
 const APP_TOKEN_PARAM = "sgate_app_token";
 const PUBLIC_JAMS_URL = "https://shizudaisaihmjohsen-stack.github.io/JAMS/";
 const MEETING_LABELS = ["新歓", "第1回", "第2回", "第3回", "第4回", "第5回"];
@@ -95,10 +96,29 @@ function setAppSessionToken(token) {
 function consumeAppExchangeToken() {
   const url = new URL(window.location.href);
   const token = url.searchParams.get(APP_TOKEN_PARAM) || "";
-  if (!token) return "";
-  url.searchParams.delete(APP_TOKEN_PARAM);
-  window.history.replaceState({}, document.title, url.toString());
-  return token;
+  if (token) {
+    try {
+      sessionStorage.setItem(PENDING_APP_TOKEN_KEY, token);
+    } catch {
+      // sessionStorageが使えない場合も、この読み込み中の交換は続行できます。
+    }
+    url.searchParams.delete(APP_TOKEN_PARAM);
+    window.history.replaceState({}, document.title, url.toString());
+    return token;
+  }
+  try {
+    return sessionStorage.getItem(PENDING_APP_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearPendingAppExchangeToken() {
+  try {
+    sessionStorage.removeItem(PENDING_APP_TOKEN_KEY);
+  } catch {
+    // sessionStorageが使えない環境では何もしません。
+  }
 }
 
 function sgateApiUrl(path) {
@@ -130,10 +150,13 @@ async function establishAppSessionFromUrl() {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.session) {
-    setAppSessionToken("");
+    if (response.status === 401 || data.error === "invalid_app_token") {
+      clearPendingAppExchangeToken();
+    }
     throw new Error("ログイン情報の引き継ぎに失敗しました。もう一度ログインしてください。");
   }
   setAppSessionToken(data.session);
+  clearPendingAppExchangeToken();
 }
 
 const elements = {
@@ -820,6 +843,7 @@ async function logout() {
     // Cookie削除に失敗しても、画面側はログイン画面へ戻します。
   } finally {
     setAppSessionToken("");
+    clearPendingAppExchangeToken();
     appAccess = "guest";
     currentMemberNo = "";
     canEditMembers = false;
@@ -1042,8 +1066,11 @@ function consumeLoginStatus() {
 
   const messages = {
     login_ok: "",
-    state_error: "認証を完了できませんでした。もう一度Discordログインを実行してください。",
+    state_error: "認証を完了できませんでした。認証リンクを開き直してください。複数タブで開始していた場合も、もう一度実行すれば続行できます。",
     discord_error: "Discord認証がキャンセルされました。もう一度Discordログインを実行してください。",
+    oauth_exchange_failed: "Discordとのログイン情報交換に失敗しました。認証リンクを開き直してください。",
+    discord_user_failed: "Discordアカウント情報を確認できませんでした。時間を置いて認証リンクを開き直してください。",
+    login_service_failed: "認証サービスで一時的なエラーが発生しました。時間を置いて認証リンクを開き直してください。",
     server_join_failed: "Discordログインは完了しましたが、サーバー参加に失敗しました。Discordアカウントのメール認証・電話番号認証、参加制限、BANの有無を確認してください。",
     discord_bot_access_error: "現在、S-GATE BotがDiscordサーバーへ接続できないため、認証を完了できません。サーバー管理者へ連絡してください。",
   };
@@ -1116,6 +1143,9 @@ function directAuthErrorMessage(errorCode) {
     invalid_or_expired_code: "認証コードが違うか、有効期限が切れています。",
     member_not_found: "入力内容と一致する部員データが見つかりませんでした。",
     discord_server_join_required: "Discordサーバーへの参加が確認できませんでした。Discordアカウントの認証状態を確認し、もう一度S-GATE認証リンクからログインしてください。",
+    discord_bot_access_error: "現在、S-GATE BotがDiscordサーバーへ接続できません。サーバー管理者へ連絡してください。",
+    discord_account_already_linked: "このDiscordアカウントは別の部員情報に認証済みです。サーバー管理者へ連絡してください。",
+    member_already_linked: "この部員情報は別のDiscordアカウントに認証済みです。サーバー管理者へ連絡してください。",
   };
   return messages[errorCode] ?? "認証処理に失敗しました。時間を置いてもう一度お試しください。";
 }
