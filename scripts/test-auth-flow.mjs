@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import { resolve, sep } from "node:path";
+import { getGuildJoinFailureStatus } from "../worker/src/index.js";
 
 const port = 8791;
 const workerBaseUrl = `http://127.0.0.1:${port}`;
@@ -10,6 +11,18 @@ const migrationState = resolve(testStateRoot, "migration");
 const runtimeState = resolve(testStateRoot, "runtime");
 const wranglerRoot = `${resolve(".wrangler")}${sep}`;
 assert(testStateRoot.startsWith(wranglerRoot), "Test state escaped the workspace .wrangler directory");
+assert(
+  getGuildJoinFailureStatus({ discordCode: 50013 }, { apiAccessible: true, status: 404 }) === "discord_join_bot_permission",
+  "Missing Bot permission is not reported explicitly",
+);
+assert(
+  getGuildJoinFailureStatus({ discordCode: 40007 }, { apiAccessible: true, status: 404 }) === "discord_user_banned",
+  "Banned users are not reported explicitly",
+);
+assert(
+  getGuildJoinFailureStatus({}, { apiAccessible: false, status: 403 }) === "discord_bot_access_error",
+  "Bot access failures are not reported explicitly",
+);
 
 function runNpx(args, options = {}) {
   if (process.platform === "win32") {

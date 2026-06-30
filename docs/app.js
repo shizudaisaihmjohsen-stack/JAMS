@@ -1090,6 +1090,11 @@ function consumeLoginStatus() {
     discord_user_failed: "Discordアカウント情報を確認できませんでした。時間を置いて認証リンクを開き直してください。",
     login_service_failed: "認証サービスで一時的なエラーが発生しました。時間を置いて認証リンクを開き直してください。",
     server_join_failed: "Discordログインは完了しましたが、サーバー参加に失敗しました。Discordアカウントのメール認証・電話番号認証、参加制限、BANの有無を確認してください。",
+    discord_account_verification_required: "Discordアカウントのメール認証または電話番号認証が必要です。Discord側で認証を完了してから、もう一度お試しください。",
+    discord_guild_limit: "参加できるDiscordサーバー数の上限に達しています。不要なサーバーから退出して、もう一度お試しください。",
+    discord_user_banned: "このDiscordアカウントはサーバーからBANされているため参加できません。サーバー管理者へ連絡してください。",
+    discord_join_bot_permission: "S-GATE Botにサーバー参加処理の権限がありません。サーバー管理者へ連絡してください。",
+    discord_join_scope_missing: "Discordのサーバー参加許可を取得できませんでした。認証リンクを開き直し、表示される権限を許可してください。",
     discord_bot_access_error: "現在、S-GATE BotがDiscordサーバーへ接続できないため、認証を完了できません。サーバー管理者へ連絡してください。",
   };
   return messages[status] ?? "認証処理でエラーが発生しました。時間をおいて、もう一度実行してください。";

@@ -347,25 +347,17 @@ async function handleDiscordCallback(request, env) {
 
   try {
     const guildJoin = await addGuildMemberBestEffort(user.id, token.access_token, env);
-    const guildMembership = guildJoin.ok
-      ? { isMember: true, apiAccessible: true, status: 0 }
-      : await checkGuildMembership(user.id, env);
-    const guildMemberConfirmed = guildJoin.ok || guildMembership.isMember;
-    const adminUser = isAdminDiscordUser(user.id, env);
-    if (!guildMemberConfirmed && !adminUser) {
-      const botAccessFailed = !guildMembership.apiAccessible
-        && [401, 403].includes(guildMembership.status);
-      const loginStatus = botAccessFailed ? "discord_bot_access_error" : "server_join_failed";
+    const guildMembership = await checkGuildMembership(user.id, env);
+    if (!guildMembership.isMember) {
+      const loginStatus = getGuildJoinFailureStatus(guildJoin, guildMembership);
       console.error(JSON.stringify({
         message: "S-GATE guild membership could not be confirmed",
         loginStatus,
         joinStatus: guildJoin.status,
+        joinDiscordCode: guildJoin.discordCode,
         membershipStatus: guildMembership.status,
       }));
       return loginResultRedirect(request, env, frontendUrl, loginStatus);
-    }
-    if (!guildMemberConfirmed) {
-      console.warn("Allowing S-GATE admin login without confirmed guild membership");
     }
 
     const linkedMember = await findMemberByDiscordUserId(user.id, env);
@@ -1482,9 +1474,28 @@ async function addGuildMemberBestEffort(userId, accessToken, env) {
     return {
       ok: false,
       status: Number(error?.httpStatus ?? 0),
+      discordCode: Number(error?.discordCode ?? 0),
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+function getGuildJoinFailureStatus(guildJoin, guildMembership) {
+  const discordCode = Number(guildJoin?.discordCode ?? 0);
+  const statusByDiscordCode = new Map([
+    [30001, "discord_guild_limit"],
+    [40002, "discord_account_verification_required"],
+    [40007, "discord_user_banned"],
+    [50013, "discord_join_bot_permission"],
+    [50026, "discord_join_scope_missing"],
+  ]);
+  if (statusByDiscordCode.has(discordCode)) {
+    return statusByDiscordCode.get(discordCode);
+  }
+  if (!guildMembership?.apiAccessible && [401, 403].includes(Number(guildMembership?.status ?? 0))) {
+    return "discord_bot_access_error";
+  }
+  return "server_join_failed";
 }
 
 async function checkGuildMembership(userId, env) {
@@ -1631,6 +1642,11 @@ async function discordFetch(path, init = {}, okStatuses = [200]) {
     const detail = await response.text();
     const error = new Error(`Discord API error ${response.status}: ${detail}`);
     error.httpStatus = response.status;
+    try {
+      error.discordCode = Number(JSON.parse(detail)?.code ?? 0);
+    } catch {
+      error.discordCode = 0;
+    }
     throw error;
   }
   if (response.status === 204) {
@@ -1760,6 +1776,8 @@ async function hmac(value, secret) {
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return base64UrlEncode(new Uint8Array(signature));
 }
+
+export { getGuildJoinFailureStatus };
 
 async function constantTimeEqual(left, right) {
   const encoder = new TextEncoder();
