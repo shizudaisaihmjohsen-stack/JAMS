@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "JAMS | 情報宣伝部 部員認証・管理システム",
+  "short_name": "JAMS",
+  "description": "浜松静大祭実行委員会 情報宣伝部の部員認証・管理システム",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2f7fb6",
+  "icons": [
+    {
+      "src": "assets/jams-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/jams-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

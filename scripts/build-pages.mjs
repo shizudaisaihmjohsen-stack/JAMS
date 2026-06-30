@@ -6,6 +6,9 @@ const publicFiles = [
   "app.js",
   "verify.html",
   "config.js",
+  "manifest.webmanifest",
+  "pwa.js",
+  "service-worker.js",
 ];
 
 await mkdir("docs", { recursive: true });
