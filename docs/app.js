@@ -1,7 +1,9 @@
 const CURRENT_YEAR = 2026;
 const STORAGE_KEY = "jams.members.v2";
 const DATA_SOURCE_KEY = "jams.dataSource.v2";
-const APP_SESSION_KEY = "jams.sgateAppSession.v1";
+const APP_SESSION_KEY = "jams.sgateAppSession.v2";
+const LEGACY_APP_SESSION_KEY = "jams.sgateAppSession.v1";
+const DEFAULT_APP_SESSION_TTL_SECONDS = 60 * 60 * 12;
 const PENDING_APP_TOKEN_KEY = "jams.sgatePendingAppToken.v2";
 const APP_TOKEN_PARAM = "sgate_app_token";
 const PUBLIC_JAMS_URL = "https://shizudaisaihmjohsen-stack.github.io/JAMS/";
@@ -75,21 +77,50 @@ const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
 
 function getAppSessionToken() {
   try {
-    return sessionStorage.getItem(APP_SESSION_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
-function setAppSessionToken(token) {
-  try {
-    if (token) {
-      sessionStorage.setItem(APP_SESSION_KEY, token);
-    } else {
-      sessionStorage.removeItem(APP_SESSION_KEY);
+    const stored = localStorage.getItem(APP_SESSION_KEY);
+    if (stored) {
+      const session = JSON.parse(stored);
+      if (session?.token && Number(session.expiresAt) > Date.now()) {
+        return session.token;
+      }
+      localStorage.removeItem(APP_SESSION_KEY);
     }
   } catch {
-    // sessionStorageが使えない環境ではCookie方式へフォールバックします。
+    // 保存データが壊れている場合やlocalStorageが使えない場合は旧方式を確認します。
+  }
+
+  try {
+    const legacyToken = sessionStorage.getItem(LEGACY_APP_SESSION_KEY) || "";
+    if (legacyToken) {
+      setAppSessionToken(legacyToken);
+      return legacyToken;
+    }
+  } catch {
+    // Web Storageが使えない環境ではCookie方式へフォールバックします。
+  }
+  return "";
+}
+
+function setAppSessionToken(token, expiresInSeconds = DEFAULT_APP_SESSION_TTL_SECONDS) {
+  try {
+    if (token) {
+      const ttlSeconds = Number(expiresInSeconds);
+      const expiresAt = Date.now()
+        + (Number.isFinite(ttlSeconds) && ttlSeconds > 0
+          ? ttlSeconds
+          : DEFAULT_APP_SESSION_TTL_SECONDS) * 1000;
+      localStorage.setItem(APP_SESSION_KEY, JSON.stringify({ token, expiresAt }));
+    } else {
+      localStorage.removeItem(APP_SESSION_KEY);
+    }
+  } catch {
+    // localStorageが使えない環境ではCookie方式へフォールバックします。
+  }
+  try {
+    sessionStorage.removeItem(LEGACY_APP_SESSION_KEY);
+    sessionStorage.removeItem(APP_SESSION_KEY);
+  } catch {
+    // 旧形式の削除に失敗しても認証処理は続行します。
   }
 }
 
@@ -155,7 +186,7 @@ async function establishAppSessionFromUrl() {
     }
     throw new Error("ログイン情報の引き継ぎに失敗しました。もう一度ログインしてください。");
   }
-  setAppSessionToken(data.session);
+  setAppSessionToken(data.session, data.expiresIn);
   clearPendingAppExchangeToken();
 }
 
@@ -1118,6 +1149,7 @@ async function loadAppBootstrap() {
     });
     const data = await response.json();
     if (!data.authenticated) {
+      setAppSessionToken("");
       appAccess = "guest";
       members = [];
       applyAccessUi();
