@@ -3712,6 +3712,8 @@
       background: rgba(255, 255, 255, .13);
       font-size: 10px;
       line-height: 1.2;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
 
