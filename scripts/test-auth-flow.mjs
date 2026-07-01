@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import { resolve, sep } from "node:path";
-import { getGuildJoinFailureStatus } from "../worker/src/index.js";
+import { getGuildJoinFailureStatus, provisionVerifiedDiscordMember } from "../worker/src/index.js";
 
 const port = 8791;
 const workerBaseUrl = `http://127.0.0.1:${port}`;
@@ -23,6 +23,53 @@ assert(
   getGuildJoinFailureStatus({}, { apiAccessible: false, status: 403 }) === "discord_bot_access_error",
   "Bot access failures are not reported explicitly",
 );
+
+const originalFetch = globalThis.fetch;
+const roleTestEnv = {
+  DISCORD_GUILD_ID: "guild",
+  DISCORD_BOT_TOKEN: "test-token",
+  DISCORD_ROLE_S_GATE_VERIFIED: "verified",
+  DISCORD_ROLE_S_GATE_UNVERIFIED: "unverified",
+  DISCORD_ROLE_JC: "jc",
+};
+const roleTestMember = {
+  committee_type: "JC",
+  position: "",
+  team: "",
+  name: "Test Member",
+};
+const roleRequests = [];
+globalThis.fetch = async (url, init = {}) => {
+  const path = new URL(url).pathname;
+  roleRequests.push({ path, method: init.method ?? "GET" });
+  if ((init.method ?? "GET") === "GET") {
+    return Response.json({ roles: ["jc", "verified"] });
+  }
+  if (init.method === "PATCH") return Response.json({});
+  return new Response(null, { status: 204 });
+};
+await provisionVerifiedDiscordMember("user", roleTestMember, roleTestEnv, "test");
+const addedRoles = roleRequests
+  .filter((request) => request.method === "PUT")
+  .map((request) => request.path.split("/").at(-1));
+assert(addedRoles.join(",") === "jc,verified", "Verified role was not assigned last");
+
+let rollbackObserved = false;
+globalThis.fetch = async (url, init = {}) => {
+  const path = new URL(url).pathname;
+  if ((init.method ?? "GET") === "GET") return Response.json({ roles: ["jc"] });
+  if (init.method === "PATCH") return Response.json({});
+  if (init.method === "DELETE" && path.endsWith("/verified")) rollbackObserved = true;
+  return new Response(null, { status: 204 });
+};
+try {
+  await provisionVerifiedDiscordMember("user", roleTestMember, roleTestEnv, "test");
+  throw new Error("Missing Discord role did not fail verification");
+} catch (error) {
+  assert(error.message === "discord_role_sync_failed", "Role provisioning returned the wrong error");
+}
+assert(rollbackObserved, "Verified role was not removed after role confirmation failed");
+globalThis.fetch = originalFetch;
 
 function runNpx(args, options = {}) {
   if (process.platform === "win32") {

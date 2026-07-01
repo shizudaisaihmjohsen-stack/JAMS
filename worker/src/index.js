@@ -718,16 +718,22 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
     throw httpError("discord_server_join_required", 409);
   }
 
-  const update = await env.DB.prepare(`
-    UPDATE members
-    SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND (discord_user_id IS NULL OR discord_user_id = ?)
-  `).bind(discordUserId, clean(discordUsername), new Date().toISOString(), member.id, discordUserId).run();
+  const sync = await provisionVerifiedDiscordMember(discordUserId, member, env, "S-GATE email verified");
+  let update;
+  try {
+    update = await env.DB.prepare(`
+      UPDATE members
+      SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND (discord_user_id IS NULL OR discord_user_id = ?)
+    `).bind(discordUserId, clean(discordUsername), new Date().toISOString(), member.id, discordUserId).run();
+  } catch (error) {
+    await removeRoleBestEffort(discordUserId, sync.verifiedRoleId, env, "S-GATE verification rollback");
+    throw error;
+  }
   if (Number(update.meta?.changes ?? 0) !== 1) {
+    await removeRoleBestEffort(discordUserId, sync.verifiedRoleId, env, "S-GATE verification rollback");
     throw httpError("member_already_linked", 409);
   }
-
-  const sync = await syncVerifiedDiscordMember(discordUserId, member, env, "S-GATE email verified");
 
   return {
     ok: true,
@@ -1550,6 +1556,64 @@ async function syncVerifiedDiscordMember(userId, member, env, reason) {
   return { roleNames, warnings };
 }
 
+async function provisionVerifiedDiscordMember(userId, member, env, reason) {
+  const roleNames = buildVerifiedRoleNames({
+    committeeType: member.committee_type,
+    position: member.position,
+    team: member.team,
+  }, userId, env);
+  const roles = roleNames.map((name) => ({ name, id: env[roleNameToEnvKey[name]] }));
+  const missingRoleNames = roles.filter((role) => !role.id).map((role) => role.name);
+  if (missingRoleNames.length) {
+    console.error(JSON.stringify({
+      message: "S-GATE required Discord role is not configured",
+      missingRoleNames,
+    }));
+    throw httpError("discord_role_sync_failed", 503);
+  }
+
+  const verifiedRole = roles.find((role) => role.name === "[S-GATE] 認証済");
+  const prerequisiteRoles = roles.filter((role) => role !== verifiedRole);
+  let verifiedRoleAdded = false;
+  const warnings = [];
+
+  try {
+    if (!await setMemberNicknameBestEffort(userId, member.name, env, reason)) {
+      warnings.push("nickname_sync_failed");
+    }
+    for (const role of prerequisiteRoles) {
+      await addRole(userId, role.id, env, reason);
+    }
+    await addRole(userId, verifiedRole.id, env, reason);
+    verifiedRoleAdded = true;
+
+    await removeRole(userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, reason);
+    const guildMember = await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`, {
+      method: "GET",
+      headers: botHeaders(env),
+    }, [200]);
+    const assignedRoleIds = new Set((guildMember.roles ?? []).map(String));
+    const missingAssignedRoles = roles.filter((role) => !assignedRoleIds.has(String(role.id)));
+    const stillUnverified = env.DISCORD_ROLE_S_GATE_UNVERIFIED
+      && assignedRoleIds.has(String(env.DISCORD_ROLE_S_GATE_UNVERIFIED));
+    if (missingAssignedRoles.length || stillUnverified) {
+      throw new Error("Discord role assignment could not be confirmed");
+    }
+
+    return { roleNames, warnings, verifiedRoleId: verifiedRole.id };
+  } catch (error) {
+    if (verifiedRoleAdded) {
+      await removeRoleBestEffort(userId, verifiedRole.id, env, "S-GATE verification rollback");
+    }
+    console.error(JSON.stringify({
+      message: "S-GATE Discord role provisioning failed",
+      discordUserId: userId,
+      detail: error.message,
+    }));
+    throw httpError("discord_role_sync_failed", 503);
+  }
+}
+
 async function addRole(userId, roleId, env, reason) {
   if (!roleId) return;
   await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}/roles/${roleId}`, {
@@ -1777,7 +1841,7 @@ async function hmac(value, secret) {
   return base64UrlEncode(new Uint8Array(signature));
 }
 
-export { getGuildJoinFailureStatus };
+export { getGuildJoinFailureStatus, provisionVerifiedDiscordMember };
 
 async function constantTimeEqual(left, right) {
   const encoder = new TextEncoder();

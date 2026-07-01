@@ -1201,6 +1201,7 @@ function directAuthErrorMessage(errorCode) {
     member_not_found: "入力内容と一致する部員データが見つかりませんでした。",
     discord_server_join_required: "Discordサーバーへの参加が確認できませんでした。Discordアカウントの認証状態を確認し、もう一度S-GATE認証リンクからログインしてください。",
     discord_bot_access_error: "現在、S-GATE BotがDiscordサーバーへ接続できません。サーバー管理者へ連絡してください。",
+    discord_role_sync_failed: "Discordロールの付与を確認できなかったため、認証済みにはしていません。時間を置いてもう一度お試しいただくか、サーバー管理者へ連絡してください。",
     discord_account_already_linked: "このDiscordアカウントは別の部員情報に認証済みです。サーバー管理者へ連絡してください。",
     member_already_linked: "この部員情報は別のDiscordアカウントに認証済みです。サーバー管理者へ連絡してください。",
   };
