@@ -6413,7 +6413,7 @@
 
     #view-settings .management-actions-grid {
       display: grid !important;
-      grid-template-columns: minmax(230px, .95fr) minmax(230px, .95fr) minmax(140px, .55fr) minmax(170px, .65fr) !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
       gap: 12px !important;
       align-items: stretch !important;
     }
@@ -6434,11 +6434,6 @@
       padding: 0 !important;
     }
 
-    #view-settings .management-session-actions,
-    #view-settings .management-danger-zone .buttons {
-      grid-template-columns: 1fr !important;
-    }
-
     #view-settings .management-panel .buttons > button,
     #view-settings .management-panel .buttons > label {
       min-height: 38px !important;
@@ -6452,15 +6447,6 @@
       letter-spacing: .04em !important;
       white-space: nowrap !important;
       box-shadow: none !important;
-    }
-
-    #view-settings .management-danger-zone {
-      padding-left: 12px !important;
-      border-left: 1px solid #f1b8c6 !important;
-    }
-
-    #view-settings .management-danger-zone .management-eyebrow {
-      color: #c44e68 !important;
     }
 
     #view-settings .management-link-panel {
@@ -6512,7 +6498,7 @@
 
     #view-settings .management-stat-grid {
       display: grid !important;
-      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
       gap: 10px !important;
     }
 

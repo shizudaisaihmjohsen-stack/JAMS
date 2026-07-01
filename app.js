@@ -216,10 +216,12 @@ const elements = {
   adminStatusText: $("adminStatusText"),
   tableBody: $("memberTableBody"),
   totalCount: $("totalCount"),
+  chairCount: $("chairCount"),
   rcCount: $("rcCount"),
   svCount: $("svCount"),
   jcCount: $("jcCount"),
-  adminCount: $("adminCount"),
+  verifiedCount: $("verifiedCount"),
+  unverifiedCount: $("unverifiedCount"),
 };
 
 function normalize(value) {
@@ -710,10 +712,12 @@ function renderManagementTable() {
 
 function renderStats() {
   elements.totalCount.textContent = String(members.length);
+  elements.chairCount.textContent = String(members.filter((member) => member.committeeType === ROLE_NAMES.chairperson).length);
   elements.rcCount.textContent = String(members.filter((member) => member.committeeType === "RC").length);
   elements.svCount.textContent = String(members.filter((member) => member.committeeType === "SV").length);
   elements.jcCount.textContent = String(members.filter((member) => member.committeeType === "JC").length);
-  elements.adminCount.textContent = String(members.filter((member) => member.discordRoles.includes(ROLE_NAMES.sGateAdmin)).length);
+  elements.verifiedCount.textContent = String(members.filter((member) => member.authStatus === "認証済").length);
+  elements.unverifiedCount.textContent = String(members.filter((member) => member.authStatus !== "認証済").length);
 }
 
 function profileHtml(member) {
@@ -993,7 +997,7 @@ async function persistMembersToDatabase() {
     return null;
   } finally {
     elements.saveMembersButton.disabled = false;
-    elements.saveMembersButton.textContent = "DB保存";
+    elements.saveMembersButton.textContent = "変更を保存";
   }
 }
 
@@ -1059,7 +1063,7 @@ async function loadMembersFromDatabase() {
     showMessage("dataMessage", `DB読込エラー: ${error.message}`, "error");
   } finally {
     elements.loadMembersButton.disabled = false;
-    elements.loadMembersButton.textContent = "DB読込";
+    elements.loadMembersButton.textContent = "最新データを読込";
   }
 }
 
@@ -1108,9 +1112,16 @@ async function copySgateInviteLink() {
     await navigator.clipboard.writeText(link);
     showMessage("dataMessage", "S-GATE認証リンクをコピーしました。", "ok");
   } catch {
-    elements.sGateInviteLink?.focus();
-    elements.sGateInviteLink?.select();
-    showMessage("dataMessage", "コピーできない場合は、選択されたリンクを手動でコピーしてください。", "error");
+    const fallback = document.createElement("textarea");
+    fallback.value = link;
+    fallback.setAttribute("readonly", "");
+    fallback.style.position = "fixed";
+    fallback.style.opacity = "0";
+    document.body.appendChild(fallback);
+    fallback.select();
+    const copied = document.execCommand("copy");
+    fallback.remove();
+    showMessage("dataMessage", copied ? "S-GATE認証リンクをコピーしました。" : "認証リンクをコピーできませんでした。", copied ? "ok" : "error");
   }
 }
 
@@ -1475,12 +1486,6 @@ function wireEvents() {
   elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);
   elements.copySgateLinkButton?.addEventListener("click", copySgateInviteLink);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
-  $("deleteAllBtn")?.addEventListener("click", () => {
-    if (!confirm("ブラウザ上の部員データをすべて削除しますか？")) return;
-    saveMembers([]);
-    localStorage.removeItem(DATA_SOURCE_KEY);
-    showMessage("dataMessage", "ブラウザ上の部員データを削除しました。", "ok");
-  });
 }
 
 window.showProfileByNumber = showProfileByNumber;

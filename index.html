@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260702-3">
+    <link rel="stylesheet" href="styles.css?v=20260702-4">
   </head>
   <body>
     <header class="site-header">
@@ -252,39 +252,27 @@
 
             <div class="management-actions-grid">
               <div class="management-action-group">
-                <p class="management-eyebrow">データベース</p>
+                <p class="management-eyebrow">D1データベース</p>
                 <div class="buttons management-primary-actions">
-                  <button class="secondary" type="button" id="loadMembersButton" disabled>DB読込</button>
-                  <button class="secondary" type="button" id="saveMembersButton" disabled>DB保存</button>
+                  <button class="secondary" type="button" id="loadMembersButton" disabled>最新データを読込</button>
+                  <button class="secondary" type="button" id="saveMembersButton" disabled>変更を保存</button>
                 </div>
               </div>
               <div class="management-action-group">
-                <p class="management-eyebrow">ファイル</p>
+                <p class="management-eyebrow">CSV入出力</p>
                 <div class="buttons management-secondary-actions">
-                  <button class="secondary" type="button" id="exportButton">CSV出力</button>
-                  <label class="secondary" for="csvFileInput">CSV読込</label>
+                  <button class="secondary" type="button" id="exportButton">CSVを書出</button>
+                  <label class="secondary" for="csvFileInput">CSVから読込</label>
                   <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
                 </div>
               </div>
               <div class="management-action-group">
-                <p class="management-eyebrow">アカウント</p>
-                <div class="buttons management-session-actions">
+                <p class="management-eyebrow">認証・アカウント</p>
+                <input id="sGateInviteLink" type="hidden" value="https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F">
+                <div class="buttons management-utility-actions">
+                  <button class="secondary" type="button" id="copySgateLinkButton">リンクをコピー</button>
                   <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
                 </div>
-              </div>
-              <div class="management-action-group management-danger-zone">
-                <p class="management-eyebrow">リセット</p>
-                <div class="buttons">
-                  <button class="danger" type="button" id="deleteAllBtn">全データ削除</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="management-link-panel">
-              <label for="sGateInviteLink">認証リンク</label>
-              <div class="management-link-row">
-                <input id="sGateInviteLink" type="text" value="https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F" readonly>
-                <button class="secondary" type="button" id="copySgateLinkButton">コピー</button>
               </div>
             </div>
             <div id="dataMessage"></div>
@@ -293,10 +281,12 @@
           <div class="derived management-stats">
             <div class="management-stat-grid">
               <div class="management-stat"><span>総部員</span><strong id="totalCount">0</strong></div>
+              <div class="management-stat"><span>委員長</span><strong id="chairCount">0</strong></div>
               <div class="management-stat"><span>RC</span><strong id="rcCount">0</strong></div>
               <div class="management-stat"><span>SV</span><strong id="svCount">0</strong></div>
               <div class="management-stat"><span>JC</span><strong id="jcCount">0</strong></div>
-              <div class="management-stat"><span>S-GATE管理者</span><strong id="adminCount">0</strong></div>
+              <div class="management-stat"><span>認証済み</span><strong id="verifiedCount">0</strong></div>
+              <div class="management-stat"><span>未認証</span><strong id="unverifiedCount">0</strong></div>
             </div>
           </div>
 
@@ -349,7 +339,7 @@
     </main>
 
     <script src="config.js?v=20260619"></script>
-    <script src="app.js?v=20260702-3"></script>
+    <script src="app.js?v=20260702-4"></script>
     <script src="pwa.js?v=20260701-1" defer></script>
   </body>
 </html>
