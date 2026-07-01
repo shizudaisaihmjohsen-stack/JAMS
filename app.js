@@ -471,6 +471,13 @@ function assignMemberNumbers(sourceMembers) {
   return sorted;
 }
 
+function memberNumberHtml(value) {
+  const memberNumber = normalize(value);
+  const match = memberNumber.match(/^([A-Za-z]+)(\d+)$/);
+  if (!match) return escapeHtml(memberNumber);
+  return `<span>${escapeHtml(match[1])}</span><span>${escapeHtml(match[2])}</span>`;
+}
+
 function compareMemberNo(a, b) {
   const parse = (value) => {
     const match = String(value || "").match(/^([A-Z])(\d+)$/i);
@@ -722,7 +729,7 @@ function profileHtml(member) {
       <div class="id-card-topbar">
         <div class="id-card-code">${escapeHtml(code)}</div>
         <div class="id-card-dept">情報宣伝部 ${escapeHtml(committeeLabel)}</div>
-        <div class="id-card-no">${escapeHtml(member.memberNo)}</div>
+        <div class="id-card-no">${memberNumberHtml(member.memberNo)}</div>
       </div>
       <div class="id-card-main">
         <div class="id-card-name-row">
