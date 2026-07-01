@@ -1182,9 +1182,9 @@ function normalizeMemberForImport(member) {
 
 function validateMemberForImport(member, rowNumber) {
   const fields = [];
-  const expectedMemberNoPrefix = member.committeeType === "委員長" || member.committeeType === "RC"
-    ? "R"
-    : member.committeeType === "SV" ? "S" : "J";
+  const expectedMemberNoPrefix = member.committeeType === "委員長"
+    ? "C"
+    : member.committeeType === "RC" ? "R" : member.committeeType === "SV" ? "S" : "J";
   if (!new RegExp(`^${expectedMemberNoPrefix}[1-9]\\d*$`).test(member.memberNo)) fields.push("部員No.");
   if (!member.name) fields.push("氏名");
   if (!/^[0-9A-Z]{8}$/.test(member.studentId)) fields.push("学籍番号");

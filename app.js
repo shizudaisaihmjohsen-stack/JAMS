@@ -432,13 +432,15 @@ function normalizeMember(member) {
 function assignMemberNumbers(sourceMembers) {
   const sorted = sourceMembers.map(normalizeMember).sort((a, b) => a.studentId.localeCompare(b.studentId, "en"));
   const usedNumbers = new Map([
+    ["C", new Set()],
     ["R", new Set()],
     ["S", new Set()],
     ["J", new Set()],
   ]);
 
   const prefixFor = (member) => {
-    if (member.committeeType === ROLE_NAMES.chairperson || member.committeeType === "RC") return "R";
+    if (member.committeeType === ROLE_NAMES.chairperson) return "C";
+    if (member.committeeType === "RC") return "R";
     if (member.committeeType === "SV") return "S";
     return "J";
   };
@@ -446,7 +448,7 @@ function assignMemberNumbers(sourceMembers) {
   // Keep issued numbers stable. Only missing, invalid, or duplicate numbers are allocated again.
   sorted.forEach((member) => {
     const prefix = prefixFor(member);
-    const match = String(member.memberNo || "").match(/^([RSJ])(\d+)$/i);
+    const match = String(member.memberNo || "").match(/^([CRSJ])(\d+)$/i);
     const number = match && match[1].toUpperCase() === prefix ? Number(match[2]) : 0;
     if (number > 0 && !usedNumbers.get(prefix).has(number)) {
       usedNumbers.get(prefix).add(number);
@@ -472,7 +474,7 @@ function assignMemberNumbers(sourceMembers) {
 function compareMemberNo(a, b) {
   const parse = (value) => {
     const match = String(value || "").match(/^([A-Z])(\d+)$/i);
-    const prefixOrder = { J: 0, S: 1, R: 2 };
+    const prefixOrder = { J: 0, S: 1, R: 2, C: 3 };
     if (!match) return { group: 99, number: Number.MAX_SAFE_INTEGER, raw: String(value || "") };
     const prefix = match[1].toUpperCase();
     return {
@@ -670,7 +672,7 @@ function renderList() {
     return;
   }
 
-  const groupOrder = [ROLE_NAMES.chairperson, "JC", "SV", "RC"];
+  const groupOrder = ["JC", "SV", "RC", ROLE_NAMES.chairperson];
   $("memberList").innerHTML = groupOrder
     .map((groupLabel) => memberListTableHtml(groupLabel, displayMembers.filter((member) => member.committeeType === groupLabel)))
     .join("");
