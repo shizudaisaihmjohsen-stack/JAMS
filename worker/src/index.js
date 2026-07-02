@@ -1,4 +1,7 @@
 const DISCORD_API_BASE = "https://discord.com/api/v10";
+const DISCORD_GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
+const DISCORD_GATEWAY_INTENTS = (1 << 0) | (1 << 1);
+const GATEWAY_KEEPALIVE_MS = 5 * 60 * 1000;
 const SESSION_COOKIE = "sgate_session";
 const STATE_COOKIE = "sgate_state";
 const RETURN_TO_COOKIE = "sgate_return_to";
@@ -49,6 +52,9 @@ export default {
       }, 500, request, env);
     }
   },
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(getDiscordGateway(env).fetch("https://discord-gateway.internal/ensure", { method: "POST" }));
+  },
 };
 
 async function route(request, env, ctx) {
@@ -59,7 +65,11 @@ async function route(request, env, ctx) {
   }
 
   if (request.method === "GET" && url.pathname === "/health") {
-    return json({ ok: true, service: "S-GATE" }, 200, request, env);
+    const gateway = getDiscordGateway(env);
+    await gateway.fetch("https://discord-gateway.internal/ensure", { method: "POST" });
+    const gatewayStatus = await gateway.fetch("https://discord-gateway.internal/status");
+    const status = await gatewayStatus.json();
+    return json({ ok: true, service: "S-GATE", discordGateway: status.status }, 200, request, env);
   }
 
   if (request.method === "POST" && url.pathname === "/discord/interactions") {
@@ -104,6 +114,14 @@ async function route(request, env, ctx) {
 
   if (request.method === "GET" && url.pathname === "/api/admin/me") {
     return getAdminStatus(request, env);
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/admin/discord-gateway") {
+    return getDiscordGatewayStatus(request, env);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/admin/discord-gateway/reconnect") {
+    return reconnectDiscordGateway(request, env);
   }
 
   if (request.method === "GET" && url.pathname === "/api/app/bootstrap") {
@@ -1421,6 +1439,28 @@ async function hashVerificationToken(token, env) {
   return hmac(`token:${token}`, getSessionSecret(env));
 }
 
+function getDiscordGateway(env) {
+  if (!env.DISCORD_GATEWAY) {
+    throw new Error("Missing required binding: DISCORD_GATEWAY");
+  }
+  return env.DISCORD_GATEWAY.getByName(String(env.DISCORD_GUILD_ID));
+}
+
+async function getDiscordGatewayStatus(request, env) {
+  await requireAdminSession(request, env);
+  const gateway = getDiscordGateway(env);
+  await gateway.fetch("https://discord-gateway.internal/ensure", { method: "POST" });
+  const status = await gateway.fetch("https://discord-gateway.internal/status");
+  return json({ ok: true, gateway: await status.json() }, 200, request, env);
+}
+
+async function reconnectDiscordGateway(request, env) {
+  await requireAdminSession(request, env);
+  const gateway = getDiscordGateway(env);
+  const status = await gateway.fetch("https://discord-gateway.internal/reconnect", { method: "POST" });
+  return json({ ok: true, gateway: await status.json() }, 200, request, env);
+}
+
 async function hashOAuthState(state, env) {
   return hmac(`oauth-state:${state}`, getSessionSecret(env));
 }
@@ -2114,4 +2154,288 @@ function httpError(message, status) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+export class DiscordGateway {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+    this.socket = null;
+    this.connectPromise = null;
+    this.heartbeatTimer = null;
+    this.reconnectTimer = null;
+    this.heartbeatAcked = true;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/ensure") {
+      return Response.json(await this.ensureConnected());
+    }
+    if (request.method === "POST" && url.pathname === "/reconnect") {
+      return Response.json(await this.reconnect());
+    }
+    if (request.method === "GET" && url.pathname === "/status") {
+      return Response.json(await this.getStatus());
+    }
+    return new Response("Not found", { status: 404 });
+  }
+
+  async ensureConnected() {
+    await this.scheduleKeepalive();
+    if (this.socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(this.socket.readyState)) {
+      return this.getStatus();
+    }
+    if (!this.connectPromise) {
+      this.connectPromise = this.connect().finally(() => {
+        this.connectPromise = null;
+      });
+    }
+    await this.connectPromise;
+    return this.getStatus();
+  }
+
+  async reconnect() {
+    this.clearTimers();
+    if (this.socket && this.socket.readyState < WebSocket.CLOSING) {
+      this.socket.close(4000, "S-GATE reconnect requested");
+    }
+    this.socket = null;
+    await this.setGatewayStatus("reconnecting");
+    return this.ensureConnected();
+  }
+
+  async getStatus() {
+    const stored = await this.ctx.storage.get([
+      "gatewayStatus",
+      "lastConnectedAt",
+      "lastEventAt",
+      "lastHeartbeatAckAt",
+      "lastDisconnectAt",
+      "lastDisconnectCode",
+      "lastError",
+    ]);
+    return {
+      status: stored.get("gatewayStatus") ?? "not_started",
+      socketState: this.socket?.readyState ?? WebSocket.CLOSED,
+      lastConnectedAt: stored.get("lastConnectedAt") ?? null,
+      lastEventAt: stored.get("lastEventAt") ?? null,
+      lastHeartbeatAckAt: stored.get("lastHeartbeatAckAt") ?? null,
+      lastDisconnectAt: stored.get("lastDisconnectAt") ?? null,
+      lastDisconnectCode: stored.get("lastDisconnectCode") ?? null,
+      lastError: stored.get("lastError") ?? null,
+    };
+  }
+
+  async alarm() {
+    await this.ensureConnected();
+  }
+
+  async connect() {
+    this.clearTimers();
+    await this.setGatewayStatus("connecting", { lastError: null });
+    const resumeUrl = await this.ctx.storage.get("resumeGatewayUrl");
+    const socket = new WebSocket(resumeUrl || DISCORD_GATEWAY_URL);
+    this.socket = socket;
+
+    socket.addEventListener("open", () => {
+      this.ctx.waitUntil(this.setGatewayStatus("waiting_for_hello"));
+    });
+    socket.addEventListener("message", (event) => {
+      this.ctx.waitUntil(this.handleGatewayMessage(socket, event.data));
+    });
+    socket.addEventListener("close", (event) => {
+      this.ctx.waitUntil(this.handleGatewayClose(socket, event.code, event.reason));
+    });
+    socket.addEventListener("error", () => {
+      this.ctx.waitUntil(this.setGatewayStatus("error", { lastError: "gateway_websocket_error" }));
+    });
+  }
+
+  async handleGatewayMessage(socket, rawMessage) {
+    if (socket !== this.socket || typeof rawMessage !== "string") return;
+    let payload;
+    try {
+      payload = JSON.parse(rawMessage);
+    } catch {
+      await this.setGatewayStatus("error", { lastError: "invalid_gateway_payload" });
+      return;
+    }
+
+    if (payload.s !== null && payload.s !== undefined) {
+      await this.ctx.storage.put("sequence", payload.s);
+    }
+    await this.ctx.storage.put("lastEventAt", new Date().toISOString());
+
+    switch (payload.op) {
+      case 10:
+        await this.handleHello(socket, payload.d?.heartbeat_interval);
+        return;
+      case 11:
+        this.heartbeatAcked = true;
+        await this.ctx.storage.put("lastHeartbeatAckAt", new Date().toISOString());
+        return;
+      case 7:
+        await this.restartSocket(socket, 4000, "Discord requested reconnect");
+        return;
+      case 9:
+        if (!payload.d) {
+          await this.ctx.storage.delete(["sessionId", "resumeGatewayUrl", "sequence"]);
+        }
+        await this.restartSocket(socket, 4000, "Discord invalid session");
+        return;
+      case 0:
+        await this.handleDispatch(payload.t, payload.d);
+        return;
+      default:
+        return;
+    }
+  }
+
+  async handleHello(socket, heartbeatInterval) {
+    if (!Number.isFinite(heartbeatInterval) || heartbeatInterval < 1000) {
+      await this.restartSocket(socket, 4000, "Invalid heartbeat interval");
+      return;
+    }
+    this.startHeartbeat(socket, heartbeatInterval);
+
+    const sessionId = await this.ctx.storage.get("sessionId");
+    const sequence = await this.ctx.storage.get("sequence");
+    if (sessionId && sequence !== undefined) {
+      this.send(socket, {
+        op: 6,
+        d: {
+          token: this.env.DISCORD_BOT_TOKEN,
+          session_id: sessionId,
+          seq: sequence,
+        },
+      });
+      await this.setGatewayStatus("resuming");
+      return;
+    }
+
+    this.send(socket, {
+      op: 2,
+      d: {
+        token: this.env.DISCORD_BOT_TOKEN,
+        intents: DISCORD_GATEWAY_INTENTS,
+        properties: {
+          os: "cloudflare-workers",
+          browser: "jams-s-gate",
+          device: "jams-s-gate",
+        },
+      },
+    });
+    await this.setGatewayStatus("identifying");
+  }
+
+  async handleDispatch(eventName, data) {
+    if (eventName === "READY") {
+      await this.ctx.storage.put({
+        sessionId: data.session_id,
+        resumeGatewayUrl: `${data.resume_gateway_url}/?v=10&encoding=json`,
+        gatewayStatus: "connected",
+        lastConnectedAt: new Date().toISOString(),
+        lastError: null,
+      });
+      console.log(JSON.stringify({ message: "S-GATE Discord Gateway connected", resumed: false }));
+      return;
+    }
+    if (eventName === "RESUMED") {
+      await this.setGatewayStatus("connected", { lastConnectedAt: new Date().toISOString(), lastError: null });
+      console.log(JSON.stringify({ message: "S-GATE Discord Gateway connected", resumed: true }));
+      return;
+    }
+    if (eventName !== "GUILD_MEMBER_REMOVE" || String(data?.guild_id) !== String(this.env.DISCORD_GUILD_ID)) {
+      return;
+    }
+
+    const discordUserId = String(data?.user?.id ?? "");
+    if (!/^\d{17,20}$/.test(discordUserId)) return;
+    const result = await this.env.DB.prepare(`
+      UPDATE members
+      SET verified_at = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE discord_user_id = ? AND verified_at IS NOT NULL
+    `).bind(discordUserId).run();
+    console.log(JSON.stringify({
+      message: "S-GATE Discord departure processed",
+      discordUserId,
+      authenticationRevoked: Number(result.meta?.changes ?? 0) === 1,
+    }));
+  }
+
+  startHeartbeat(socket, interval) {
+    this.stopHeartbeat();
+    const heartbeat = () => {
+      if (socket !== this.socket || socket.readyState !== WebSocket.OPEN) return;
+      if (!this.heartbeatAcked) {
+        this.ctx.waitUntil(this.restartSocket(socket, 4000, "Heartbeat ACK timeout"));
+        return;
+      }
+      this.heartbeatAcked = false;
+      this.ctx.waitUntil(this.ctx.storage.get("sequence").then((sequence) => {
+        this.send(socket, { op: 1, d: sequence ?? null });
+      }));
+      this.heartbeatTimer = setTimeout(heartbeat, interval);
+    };
+    this.heartbeatAcked = true;
+    this.heartbeatTimer = setTimeout(heartbeat, Math.floor(Math.random() * interval));
+  }
+
+  async handleGatewayClose(socket, code, reason) {
+    if (socket !== this.socket) return;
+    this.socket = null;
+    this.stopHeartbeat();
+    const fatalCodes = new Set([4004, 4010, 4011, 4012, 4013, 4014]);
+    await this.setGatewayStatus(fatalCodes.has(code) ? "configuration_error" : "disconnected", {
+      lastDisconnectAt: new Date().toISOString(),
+      lastDisconnectCode: code,
+      lastError: reason || null,
+    });
+    if (fatalCodes.has(code)) return;
+    this.scheduleReconnect();
+  }
+
+  async restartSocket(socket, code, reason) {
+    if (socket !== this.socket) return;
+    this.stopHeartbeat();
+    this.socket = null;
+    if (socket.readyState < WebSocket.CLOSING) socket.close(code, reason);
+    await this.setGatewayStatus("reconnecting");
+    this.scheduleReconnect();
+  }
+
+  scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    const delay = 1000 + Math.floor(Math.random() * 4000);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.ctx.waitUntil(this.ensureConnected());
+    }, delay);
+  }
+
+  send(socket, payload) {
+    if (socket === this.socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(payload));
+    }
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  clearTimers() {
+    this.stopHeartbeat();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  async scheduleKeepalive() {
+    await this.ctx.storage.setAlarm(Date.now() + GATEWAY_KEEPALIVE_MS);
+  }
+
+  async setGatewayStatus(status, extra = {}) {
+    await this.ctx.storage.put({ gatewayStatus: status, ...extra });
+  }
 }

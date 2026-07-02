@@ -2,6 +2,17 @@ name = "jams-s-gate"
 main = "worker/src/index.js"
 compatibility_date = "2026-06-11"
 
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[durable_objects.bindings]]
+name = "DISCORD_GATEWAY"
+class_name = "DiscordGateway"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DiscordGateway"]
+
 # Create a D1 database and replace database_id before deployment.
 [[d1_databases]]
 binding = "DB"
