@@ -1,6 +1,5 @@
 const CURRENT_YEAR = 2026;
 const STORAGE_KEY = "jams.members.v2";
-const DATA_SOURCE_KEY = "jams.dataSource.v2";
 const APP_SESSION_KEY = "jams.sgateAppSession.v2";
 const LEGACY_APP_SESSION_KEY = "jams.sgateAppSession.v1";
 const DEFAULT_APP_SESSION_TTL_SECONDS = 60 * 60 * 12;
@@ -204,10 +203,6 @@ const elements = {
   directAuthConfirmButton: $("directAuthConfirmButton"),
   logoutButton: $("logoutButton"),
   loginMessage: $("loginMessage"),
-  csvFileInput: $("csvFileInput"),
-  loadMembersButton: $("loadMembersButton"),
-  exportButton: $("exportButton"),
-  saveMembersButton: $("saveMembersButton"),
   sGateInviteLink: $("sGateInviteLink"),
   copySgateLinkButton: $("copySgateLinkButton"),
   discordLoginLink: $("discordLoginLink"),
@@ -271,39 +266,6 @@ function updateDerivedPreview() {
   $("derivedGrade").textContent = info.grade;
   $("derivedFaculty").textContent = info.faculty;
   $("derivedDepartment").textContent = info.department;
-}
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-    if (char === '"' && inQuotes && next === '"') {
-      cell += '"';
-      index += 1;
-    } else if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-    } else if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && next === "\n") index += 1;
-      row.push(cell);
-      if (row.some((entry) => normalize(entry))) rows.push(row);
-      row = [];
-      cell = "";
-    } else {
-      cell += char;
-    }
-  }
-
-  row.push(cell);
-  if (row.some((entry) => normalize(entry))) rows.push(row);
-  return rows;
 }
 
 function normalizeCommitteeType(value, position) {
@@ -522,41 +484,6 @@ function loadStoredMembers() {
   }
 }
 
-function makeMembersFromCsv(text) {
-  const rows = parseCsv(text);
-  const headers = rows.shift()?.map(normalize) ?? [];
-  const records = rows.map((row) => {
-    const record = {};
-    headers.forEach((header, index) => {
-      record[header] = normalize(row[index]);
-    });
-    return record;
-  });
-
-  return assignMemberNumbers(records.map((record) => {
-    const parsedId = parseStudentId(record["学籍番号"]);
-    return {
-      name: record["氏名"],
-      kana: record["フリガナ"],
-      lineName: record["LINEの名前"] || record["LINE名"],
-      studentId: parsedId.normalized,
-      email: record["大学メール"],
-      discordUserId: record["Discord ID"] || record["discord_user_id"] || record["DiscordユーザーID"],
-      sGateUserId: record["S-GATEユーザーID"] || record["S-GATE ユーザーID"] || record["discord_username"] || record["Discordユーザー名"],
-      committeeType: normalizeCommitteeType(record["区分"], record["役職"]),
-      position: record["役職"],
-      team: record["配属先"] || record["所属の課"],
-      authStatus: normalizeAuthStatus(record["認証状態"]),
-      grade: parsedId.grade,
-      faculty: parsedId.faculty,
-      department: parsedId.department,
-      parseError: parsedId.error,
-      meetings: Object.fromEntries(MEETING_LABELS.map((label) => [label, normalizeMeetingValue(record[label])])),
-      updatedAt: new Date().toISOString(),
-    };
-  }));
-}
-
 function makeMembersFromDatabaseRows(rows) {
   return assignMemberNumbers((rows || []).map((row) => ({
     memberNo: row.member_no,
@@ -589,13 +516,6 @@ function showMessage(targetId, text, type = "ok") {
   const target = $(targetId);
   if (!target) return;
   target.innerHTML = text ? `<div class="notice ${type}">${escapeHtml(text)}</div>` : "";
-}
-
-function updateDataSourceDisplay(text) {
-  const target = $("dataSourceInfo");
-  if (!target) return;
-  const stored = text || localStorage.getItem(DATA_SOURCE_KEY) || "未読込";
-  target.innerHTML = `<strong>${escapeHtml(stored)}</strong>`;
 }
 
 function assignmentGridForList(assignments = []) {
@@ -843,7 +763,6 @@ function renderAll() {
   renderStats();
   renderManagementTable();
   renderList();
-  updateDataSourceDisplay();
 }
 
 function getDefaultViewForAccess() {
@@ -911,7 +830,6 @@ async function logout() {
     canEditMembers = false;
     members = [];
     localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(DATA_SOURCE_KEY);
     applyAccessUi();
     setLoginMessage("ログアウトしました。");
     if (elements.logoutButton) {
@@ -933,72 +851,6 @@ function switchView(view) {
   const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
   const mainTop = document.querySelector("main.wrap")?.offsetTop || 0;
   window.scrollTo({ top: Math.max(0, mainTop - headerHeight - 8), behavior: "auto" });
-}
-
-function exportCsv() {
-  const headers = ["部員No.", "区分", "氏名", "フリガナ", "LINEの名前", "学籍番号", "大学メール", "学年", "学部", "学科", "役職", "配属先", "認証状態", "S-GATEロール", ...MEETING_LABELS];
-  const rows = members.map((member) => [
-    member.memberNo,
-    member.committeeType,
-    member.name,
-    member.kana,
-    member.lineName,
-    member.studentId,
-    member.email,
-    member.grade,
-    member.faculty,
-    member.department,
-    member.position,
-    member.team,
-    member.authStatus,
-    member.discordRoles.join(" / "),
-    ...MEETING_LABELS.map((label) => member.meetings[label]),
-  ]);
-  const csv = [headers, ...rows].map((row) => row.map((cell) => `"${normalize(cell).replaceAll('"', '""')}"`).join(",")).join("\r\n");
-  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "jams-members.csv";
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-async function saveMembersToDatabase() {
-  const savedCount = await persistMembersToDatabase();
-  if (savedCount !== null) {
-    showMessage("dataMessage", `${savedCount}件をD1へ保存しました。`, "ok");
-  }
-}
-
-async function persistMembersToDatabase() {
-  if (!sGateBaseUrl) {
-    showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
-    return null;
-  }
-  if (!members.length) {
-    showMessage("dataMessage", "保存する部員データがありません。", "error");
-    return null;
-  }
-
-  elements.saveMembersButton.disabled = true;
-  elements.saveMembersButton.textContent = "保存中";
-  try {
-    const response = await sgateFetch("/api/admin/members/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ members }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || data.error || "保存に失敗しました。");
-    return data.imported;
-  } catch (error) {
-    showMessage("dataMessage", `DB保存エラー: ${error.message}`, "error");
-    return null;
-  } finally {
-    elements.saveMembersButton.disabled = false;
-    elements.saveMembersButton.textContent = "変更を保存";
-  }
 }
 
 async function persistMemberToDatabase(member) {
@@ -1039,31 +891,6 @@ async function deleteMemberFromDatabase(member) {
     showMessage("dataMessage", `D1削除エラー: ${error.message}`, "error");
     alert(`D1削除エラー: ${error.message}`);
     return false;
-  }
-}
-
-async function loadMembersFromDatabase() {
-  if (!sGateBaseUrl) {
-    showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
-    return;
-  }
-
-  elements.loadMembersButton.disabled = true;
-  elements.loadMembersButton.textContent = "読込中";
-  try {
-    const response = await sgateFetch("/api/admin/members", {
-      method: "GET",
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || data.error || "読み込みに失敗しました。");
-    saveMembers(makeMembersFromDatabaseRows(data.members ?? []));
-    localStorage.setItem(DATA_SOURCE_KEY, "D1データベース");
-    showMessage("dataMessage", `${members.length}件をD1から読み込みました。`, "ok");
-  } catch (error) {
-    showMessage("dataMessage", `DB読込エラー: ${error.message}`, "error");
-  } finally {
-    elements.loadMembersButton.disabled = false;
-    elements.loadMembersButton.textContent = "最新データを読込";
   }
 }
 
@@ -1193,7 +1020,6 @@ async function loadAppBootstrap() {
     canEditMembers = Boolean(data.canEdit);
     members = makeMembersFromDatabaseRows(data.members ?? []);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
-    localStorage.setItem(DATA_SOURCE_KEY, appAccess === "self" ? "本人データ" : "D1データベース");
     applyAccessUi();
     renderAll();
     if (appAccess === "admin") {
@@ -1366,21 +1192,15 @@ async function refreshAdminStatus() {
     if (!response.ok) throw new Error(data.error || "admin_status_failed");
     if (!data.authenticated) {
       elements.adminStatusText.textContent = "未ログイン";
-      elements.saveMembersButton.disabled = true;
-      elements.loadMembersButton.disabled = true;
       if (elements.sendDmButton) elements.sendDmButton.disabled = true;
       return;
     }
     elements.adminStatusText.textContent = data.admin
       ? `管理者: ${data.username ?? "Discordユーザー"}`
       : `閲覧のみ: ${data.username ?? "Discordユーザー"}`;
-    elements.saveMembersButton.disabled = !data.admin;
-    elements.loadMembersButton.disabled = !data.admin;
     if (elements.sendDmButton) elements.sendDmButton.disabled = !data.admin;
   } catch (error) {
     elements.adminStatusText.textContent = `S-GATE管理者状態を確認できませんでした: ${error.message}`;
-    elements.saveMembersButton.disabled = true;
-    elements.loadMembersButton.disabled = true;
     if (elements.sendDmButton) elements.sendDmButton.disabled = true;
   }
 }
@@ -1441,21 +1261,20 @@ function wireEvents() {
       updatedAt: new Date().toISOString(),
     };
 
-    if (editingId) {
-      saveMembers(members.map((member) => member.memberNo === editingId ? { ...member, ...base } : member));
-    } else {
-      saveMembers([...members, base]);
-    }
-    const savedMember = members.find((member) => member.studentId === studentId);
+    const nextMembers = assignMemberNumbers(editingId
+      ? members.map((member) => member.memberNo === editingId ? { ...member, ...base } : member)
+      : [...members, base]);
+    const savedMember = nextMembers.find((member) => member.studentId === studentId);
     const savedToDatabase = savedMember ? await persistMemberToDatabase(savedMember) : false;
     if (!savedToDatabase) {
-      showMessage("formMessage", `${editingId ? "更新" : "登録"}しましたが、D1への自動保存に失敗しました。管理メニューからDB保存を再実行してください。`, "error");
+      showMessage("formMessage", `D1への保存に失敗しました。内容を確認して、もう一度${editingId ? "更新" : "登録"}してください。`, "error");
       if (saveButton) {
         saveButton.disabled = false;
         saveButton.textContent = editingId ? "更新する" : "登録する";
       }
       return;
     }
+    saveMembers(nextMembers);
     showMessage("formMessage", `${editingId ? `${savedMember.memberNo}を更新` : `${savedMember.memberNo}を登録`}し、D1へ自動保存しました。`, "ok");
     resetForm(false);
   });
@@ -1468,17 +1287,6 @@ function wireEvents() {
     if (event.key === "Enter") searchMembers();
   });
 
-  elements.csvFileInput?.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    saveMembers(makeMembersFromCsv(text));
-    localStorage.setItem(DATA_SOURCE_KEY, file.name);
-    showMessage("dataMessage", `${members.length}件をCSVから読み込みました。`, "ok");
-  });
-  elements.exportButton?.addEventListener("click", exportCsv);
-  elements.saveMembersButton?.addEventListener("click", saveMembersToDatabase);
-  elements.loadMembersButton?.addEventListener("click", loadMembersFromDatabase);
   elements.previewDmButton?.addEventListener("click", previewAbsenceDmTargets);
   elements.sendDmButton?.addEventListener("click", sendAbsenceDm);
   elements.logoutButton?.addEventListener("click", logout);
