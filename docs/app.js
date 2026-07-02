@@ -4,6 +4,9 @@ const APP_SESSION_KEY = "jams.sgateAppSession.v2";
 const LEGACY_APP_SESSION_KEY = "jams.sgateAppSession.v1";
 const DEFAULT_APP_SESSION_TTL_SECONDS = 60 * 60 * 12;
 const PENDING_APP_TOKEN_KEY = "jams.sgatePendingAppToken.v2";
+const LOGIN_ATTEMPT_KEY = "jams.sgateLoginAttempt.v1";
+const LOGIN_EVENT_KEY = "jams.sgateLoginEvent.v1";
+const LOGIN_ATTEMPT_TTL_MS = 2 * 60 * 1000;
 const APP_TOKEN_PARAM = "sgate_app_token";
 const PUBLIC_JAMS_URL = "https://shizudaisaihmjohsen-stack.github.io/JAMS/";
 const MEETING_LABELS = ["新歓", "第1回", "第2回", "第3回", "第4回", "第5回"];
@@ -70,6 +73,13 @@ let appAccess = "guest";
 let currentMemberNo = "";
 let canEditMembers = false;
 let directAuthEmail = "";
+let loginBroadcastChannel = null;
+let loginRefreshInProgress = false;
+let loginAttemptTimer = null;
+
+const TAB_INSTANCE_ID = typeof crypto.randomUUID === "function"
+  ? crypto.randomUUID()
+  : Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
 
 const $ = (id) => document.getElementById(id);
 const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
@@ -151,6 +161,110 @@ function clearPendingAppExchangeToken() {
   }
 }
 
+function getActiveLoginAttempt() {
+  try {
+    const attempt = JSON.parse(localStorage.getItem(LOGIN_ATTEMPT_KEY) || "null");
+    if (!attempt?.tabId || !Number.isFinite(Number(attempt.startedAt))) {
+      localStorage.removeItem(LOGIN_ATTEMPT_KEY);
+      return null;
+    }
+    if (Date.now() - Number(attempt.startedAt) >= LOGIN_ATTEMPT_TTL_MS) {
+      localStorage.removeItem(LOGIN_ATTEMPT_KEY);
+      return null;
+    }
+    return attempt;
+  } catch {
+    return null;
+  }
+}
+
+function releaseLoginAttempt(force = false) {
+  try {
+    const attempt = getActiveLoginAttempt();
+    if (force || !attempt || attempt.tabId === TAB_INSTANCE_ID) {
+      localStorage.removeItem(LOGIN_ATTEMPT_KEY);
+    }
+  } catch {
+    // localStorageが利用できなくても、このタブのログイン処理は続行します。
+  }
+  updateLoginLinkState();
+}
+
+function updateLoginLinkState() {
+  const link = elements?.appLoginLink;
+  if (!link || !sGateBaseUrl) return;
+  const attempt = getActiveLoginAttempt();
+  const inProgress = Boolean(attempt);
+  link.setAttribute("aria-disabled", String(inProgress));
+  link.textContent = inProgress ? "Discord認証を進行中" : "Discordでログイン";
+  link.classList.toggle("login-in-progress", inProgress);
+  if (loginAttemptTimer) clearTimeout(loginAttemptTimer);
+  loginAttemptTimer = attempt
+    ? setTimeout(updateLoginLinkState, Math.max(0, LOGIN_ATTEMPT_TTL_MS - (Date.now() - Number(attempt.startedAt))) + 50)
+    : null;
+}
+
+function beginDiscordLogin(event) {
+  const activeAttempt = getActiveLoginAttempt();
+  if (activeAttempt) {
+    event.preventDefault();
+    setLoginMessage("別の画面でDiscord認証を進めています。完了すると、この画面も自動で更新されます。");
+    updateLoginLinkState();
+    return;
+  }
+  try {
+    localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify({
+      tabId: TAB_INSTANCE_ID,
+      startedAt: Date.now(),
+    }));
+  } catch {
+    // 保存できない環境では、このタブ内の通常ログインとして続行します。
+  }
+  updateLoginLinkState();
+}
+
+function announceLoginSuccess() {
+  const event = { type: "login_success", at: Date.now() };
+  releaseLoginAttempt(true);
+  try {
+    localStorage.setItem(LOGIN_EVENT_KEY, JSON.stringify(event));
+  } catch {
+    // BroadcastChannelが使える場合はそちらだけで通知します。
+  }
+  loginBroadcastChannel?.postMessage(event);
+}
+
+async function handleLoginCoordinatorEvent(event) {
+  if (event?.type !== "login_success" || loginRefreshInProgress || appAccess === "admin" || appAccess === "self") return;
+  loginRefreshInProgress = true;
+  try {
+    setLoginMessage("別の画面でログインが完了しました。ログイン状態を更新しています。");
+    await loadAppBootstrap();
+  } finally {
+    loginRefreshInProgress = false;
+  }
+}
+
+function initializeLoginCoordination() {
+  if ("BroadcastChannel" in window) {
+    loginBroadcastChannel = new BroadcastChannel("jams-sgate-login");
+    loginBroadcastChannel.addEventListener("message", (event) => {
+      void handleLoginCoordinatorEvent(event.data);
+    });
+  }
+  window.addEventListener("storage", (event) => {
+    if (event.key === LOGIN_ATTEMPT_KEY) updateLoginLinkState();
+    if (event.key === LOGIN_EVENT_KEY && event.newValue) {
+      try {
+        void handleLoginCoordinatorEvent(JSON.parse(event.newValue));
+      } catch {
+        // 他タブからの壊れた通知は無視します。
+      }
+    }
+  });
+  updateLoginLinkState();
+}
+
 function sgateApiUrl(path) {
   return `${sGateBaseUrl.replace(/\/$/, "")}${path}`;
 }
@@ -182,11 +296,15 @@ async function establishAppSessionFromUrl() {
   if (!response.ok || !data.session) {
     if (response.status === 401 || data.error === "invalid_app_token") {
       clearPendingAppExchangeToken();
+      releaseLoginAttempt(true);
     }
-    throw new Error("ログイン情報の引き継ぎに失敗しました。もう一度ログインしてください。");
+    const error = new Error("ログイン情報の有効期限が切れたか、別の画面ですでに使用されました。Discordログインからやり直してください。");
+    error.code = data.error || "app_session_exchange_failed";
+    throw error;
   }
   setAppSessionToken(data.session, data.expiresIn);
   clearPendingAppExchangeToken();
+  announceLoginSuccess();
 }
 
 const elements = {
@@ -825,6 +943,7 @@ async function logout() {
   } finally {
     setAppSessionToken("");
     clearPendingAppExchangeToken();
+    releaseLoginAttempt(true);
     appAccess = "guest";
     currentMemberNo = "";
     canEditMembers = false;
@@ -957,12 +1076,14 @@ function consumeLoginStatus() {
   const status = url.searchParams.get("status");
   if (!status) return "";
 
+  releaseLoginAttempt(true);
+
   url.searchParams.delete("status");
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 
   const messages = {
     login_ok: "",
-    state_error: "認証を完了できませんでした。認証リンクを開き直してください。複数タブで開始していた場合も、もう一度実行すれば続行できます。",
+    state_error: "ログイン情報の有効期限が切れたか、すでに使用されています。この画面からDiscordログインをやり直してください。",
     discord_error: "Discord認証がキャンセルされました。もう一度Discordログインを実行してください。",
     oauth_exchange_failed: "Discordとのログイン情報交換に失敗しました。認証リンクを開き直してください。",
     discord_user_failed: "Discordアカウント情報を確認できませんでした。時間を置いて認証リンクを開き直してください。",
@@ -1027,11 +1148,15 @@ async function loadAppBootstrap() {
     }
     switchView(getDefaultViewForAccess());
   } catch (error) {
+    if (error?.code === "invalid_app_token" || error?.code === "app_session_exchange_failed") {
+      clearPendingAppExchangeToken();
+      releaseLoginAttempt(true);
+    }
     appAccess = "guest";
     members = [];
     applyAccessUi();
     setDirectAuthMode(false);
-    setLoginMessage(loginStatusMessage || "ログイン状態を確認できませんでした。再読み込みして、もう一度ログインしてください。");
+    setLoginMessage(loginStatusMessage || error.message || "ログイン状態を確認できませんでした。再読み込みして、もう一度ログインしてください。");
     switchView("login");
   }
 }
@@ -1293,6 +1418,7 @@ function wireEvents() {
   elements.directAuthForm?.addEventListener("submit", startDirectAuth);
   elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);
   elements.copySgateLinkButton?.addEventListener("click", copySgateInviteLink);
+  elements.appLoginLink?.addEventListener("click", beginDiscordLogin);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
 }
 
@@ -1317,6 +1443,7 @@ if (sGateBaseUrl) {
 }
 
 wireEvents();
+initializeLoginCoordination();
 updateDerivedPreview();
 updateSgateInviteLink();
 loadAppBootstrap();

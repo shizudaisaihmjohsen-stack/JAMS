@@ -5747,6 +5747,13 @@
       box-shadow: 0 8px 20px rgba(47, 127, 182, .24);
     }
 
+    #view-login #appLoginLink.login-in-progress,
+    #view-login #appLoginLink[aria-disabled="true"] {
+      cursor: wait;
+      opacity: .68;
+      pointer-events: auto;
+    }
+
     #view-login #loginMessage {
       margin: 0;
       padding-top: 12px;
