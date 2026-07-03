@@ -1319,9 +1319,10 @@ function getDmTargetPreview() {
 function previewAbsenceDmTargets() {
   if (getDmTargetMode() === "selected") {
     const selectedMembers = members.filter((member) => selectedDmMemberNos.has(member.memberNo));
+    const directDiscordUserId = normalize($("dmDirectDiscordUserId")?.value);
     $("dmPreview").hidden = false;
-    $("dmPreview").textContent = selectedMembers.length
-      ? `DM送信対象は${selectedMembers.length}人です。${selectedMembers.slice(0, 8).map((member) => `${member.memberNo} ${member.name}`).join("、")}`
+    $("dmPreview").textContent = selectedMembers.length || directDiscordUserId
+      ? `DM送信対象は${selectedMembers.length + (directDiscordUserId ? 1 : 0)}人です。${selectedMembers.slice(0, 8).map((member) => `${member.memberNo} ${member.name}`).join("、")}${directDiscordUserId ? `${selectedMembers.length ? "、" : ""}Discord ID: ${directDiscordUserId}` : ""}`
       : "送信する部員を選択してください。";
     return;
   }
@@ -1349,13 +1350,19 @@ async function sendAbsenceDm() {
   }
   const { sendableMembers, missingDiscordMembers } = getDmTargetPreview();
   const selectedMembers = members.filter((member) => selectedDmMemberNos.has(member.memberNo));
-  if (selectedMode && !selectedMembers.length) {
+  const directDiscordUserId = normalize($("dmDirectDiscordUserId")?.value);
+  if (selectedMode && directDiscordUserId && !/^\d{17,20}$/.test(directDiscordUserId)) {
+    $("dmPreview").textContent = "DiscordユーザーIDは17〜20桁の数字で入力してください。";
+    $("dmPreview").hidden = false;
+    return;
+  }
+  if (selectedMode && !selectedMembers.length && !directDiscordUserId) {
     $("dmPreview").textContent = "送信する部員を選択してください。";
     $("dmPreview").hidden = false;
     return;
   }
   const confirmText = selectedMode
-    ? [`選択した${selectedMembers.length}人へDiscord DMを送信します。`, "", "送信後は取り消せません。実行しますか？"].join("\n")
+    ? [`指定した${selectedMembers.length + (directDiscordUserId ? 1 : 0)}人へDiscord DMを送信します。`, "", "送信後は取り消せません。実行しますか？"].join("\n")
     : [
       `${meeting}の未参加者へDiscord DMを送信します。`,
       `画面上の送信対象: ${sendableMembers.length}人`,
@@ -1374,7 +1381,7 @@ async function sendAbsenceDm() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(selectedMode
-        ? { memberNos: selectedMembers.map((member) => member.memberNo), message }
+        ? { memberNos: selectedMembers.map((member) => member.memberNo), discordUserIds: directDiscordUserId ? [directDiscordUserId] : [], message }
         : { meeting, message }),
     });
     const data = await response.json();
