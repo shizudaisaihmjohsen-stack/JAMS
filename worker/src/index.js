@@ -1482,23 +1482,36 @@ async function sendSelectedDirectMessages(request, env) {
       .map((value) => String(value ?? "").trim())
       .filter((value) => /^[CRSJ][1-9]\d*$/.test(value)),
   )];
+  const directDiscordUserIds = [...new Set(
+    (Array.isArray(body.discordUserIds) ? body.discordUserIds : [])
+      .map((value) => String(value ?? "").trim())
+      .filter((value) => /^\d{17,20}$/.test(value)),
+  )];
   const message = String(body.message ?? "").trim();
-  if (!memberNos.length || memberNos.length > 100) {
+  if ((!memberNos.length && !directDiscordUserIds.length) || memberNos.length + directDiscordUserIds.length > 100) {
     return json({ error: "invalid_recipients" }, 400, request, env);
   }
   if (!message || message.length > 1800) {
     return json({ error: "invalid_message", message: "メッセージは1文字以上1800文字以内で入力してください。" }, 400, request, env);
   }
 
-  const placeholders = memberNos.map(() => "?").join(", ");
-  const result = await env.DB.prepare(`
-    SELECT member_no, name, discord_user_id
-    FROM members
-    WHERE member_no IN (${placeholders})
-  `).bind(...memberNos).all();
+  const result = memberNos.length
+    ? await env.DB.prepare(`
+      SELECT member_no, name, discord_user_id
+      FROM members
+      WHERE member_no IN (${memberNos.map(() => "?").join(", ")})
+    `).bind(...memberNos).all()
+    : { results: [] };
   const memberByNo = new Map((result.results ?? []).map((member) => [member.member_no, member]));
   const selectedMembers = memberNos.map((memberNo) => memberByNo.get(memberNo)).filter(Boolean);
-  const sendableMembers = selectedMembers.filter((member) => String(member.discord_user_id ?? "").trim());
+  const memberDiscordIds = new Set(selectedMembers.map((member) => String(member.discord_user_id ?? "").trim()).filter(Boolean));
+  const directRecipients = directDiscordUserIds
+    .filter((discordUserId) => !memberDiscordIds.has(discordUserId))
+    .map((discordUserId) => ({ member_no: "", name: "", discord_user_id: discordUserId }));
+  const sendableMembers = [
+    ...selectedMembers.filter((member) => String(member.discord_user_id ?? "").trim()),
+    ...directRecipients,
+  ];
   const skippedNoDiscord = selectedMembers.length - sendableMembers.length;
   const notFound = memberNos.length - selectedMembers.length;
   const sendResults = [];
@@ -1518,7 +1531,7 @@ async function sendSelectedDirectMessages(request, env) {
         messageId: sentMessage?.id ?? "",
       });
     } catch (error) {
-      console.warn(`Failed to send selected DM to ${member.member_no}: ${error.message}`);
+      console.warn(`Failed to send selected DM to ${member.member_no || member.discord_user_id}: ${error.message}`);
       sendResults.push({
         memberNo: member.member_no,
         name: member.name,
@@ -1533,7 +1546,7 @@ async function sendSelectedDirectMessages(request, env) {
   const failed = sendResults.length - sent;
   return json({
     ok: failed === 0 && notFound === 0,
-    targeted: memberNos.length,
+    targeted: memberNos.length + directRecipients.length,
     sent,
     failed,
     skippedNoDiscord,
