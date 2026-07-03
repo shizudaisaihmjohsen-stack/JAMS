@@ -5585,14 +5585,16 @@
       align-items: center;
     }
 
-    #view-settings #sGateInviteLink {
+    #view-settings #sGateInviteLink,
+    #view-settings #managementPageLink {
       height: 42px;
       font-size: 13px;
       color: var(--muted);
       background: rgba(255, 255, 255, .88);
     }
 
-    #view-settings #copySgateLinkButton {
+    #view-settings #copySgateLinkButton,
+    #view-settings #copyManagementLinkButton {
       min-height: 42px !important;
       height: 42px !important;
       padding: 0 18px !important;
@@ -6141,7 +6143,8 @@
       background: #fff !important;
     }
 
-    #view-settings #copySgateLinkButton {
+    #view-settings #copySgateLinkButton,
+    #view-settings #copyManagementLinkButton {
       min-height: 42px !important;
       width: 112px !important;
       padding: 9px 12px !important;
@@ -6207,7 +6210,8 @@
         grid-template-columns: 1fr !important;
       }
 
-      #view-settings #copySgateLinkButton {
+      #view-settings #copySgateLinkButton,
+      #view-settings #copyManagementLinkButton {
         width: 100% !important;
       }
 
@@ -6386,7 +6390,8 @@
     }
 
     html body #view-settings .management-panel .management-session-actions > button,
-    html body #view-settings .management-panel #copySgateLinkButton {
+    html body #view-settings .management-panel #copySgateLinkButton,
+    html body #view-settings .management-panel #copyManagementLinkButton {
       width: 100% !important;
       min-width: 0 !important;
       margin: 0 !important;
@@ -6467,7 +6472,8 @@
     }
 
     #view-settings .management-session-actions button,
-    #view-settings #copySgateLinkButton {
+    #view-settings #copySgateLinkButton,
+    #view-settings #copyManagementLinkButton {
       width: auto !important;
       min-width: 132px !important;
       min-height: 38px !important;
@@ -6618,7 +6624,8 @@
       }
 
       #view-settings .management-session-actions button,
-      #view-settings #copySgateLinkButton {
+      #view-settings #copySgateLinkButton,
+      #view-settings #copyManagementLinkButton {
         width: 100% !important;
         min-width: 0 !important;
       }

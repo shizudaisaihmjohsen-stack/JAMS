@@ -322,7 +322,9 @@ const elements = {
   logoutButton: $("logoutButton"),
   loginMessage: $("loginMessage"),
   sGateInviteLink: $("sGateInviteLink"),
+  managementPageLink: $("managementPageLink"),
   copySgateLinkButton: $("copySgateLinkButton"),
+  copyManagementLinkButton: $("copyManagementLinkButton"),
   discordLoginLink: $("discordLoginLink"),
   previewDmButton: $("previewDmButton"),
   sendDmButton: $("sendDmButton"),
@@ -1047,15 +1049,14 @@ function updateSgateInviteLink() {
   elements.sGateInviteLink.value = buildSgateInviteLink();
 }
 
-async function copySgateInviteLink() {
-  const link = elements.sGateInviteLink?.value || buildSgateInviteLink();
+async function copyUrl(link, label) {
   if (!link) {
     showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
     return;
   }
   try {
     await navigator.clipboard.writeText(link);
-    showMessage("dataMessage", "S-GATE認証リンクをコピーしました。", "ok");
+    showMessage("dataMessage", `${label}をコピーしました。`, "ok");
   } catch {
     const fallback = document.createElement("textarea");
     fallback.value = link;
@@ -1066,8 +1067,16 @@ async function copySgateInviteLink() {
     fallback.select();
     const copied = document.execCommand("copy");
     fallback.remove();
-    showMessage("dataMessage", copied ? "S-GATE認証リンクをコピーしました。" : "認証リンクをコピーできませんでした。", copied ? "ok" : "error");
+    showMessage("dataMessage", copied ? `${label}をコピーしました。` : `${label}をコピーできませんでした。`, copied ? "ok" : "error");
   }
+}
+
+function copySgateInviteLink() {
+  return copyUrl(elements.sGateInviteLink?.value || buildSgateInviteLink(), "認証URL");
+}
+
+function copyManagementPageLink() {
+  return copyUrl(elements.managementPageLink?.value || PUBLIC_JAMS_URL, "管理画面URL");
 }
 
 function consumeLoginStatus() {
@@ -1417,6 +1426,7 @@ function wireEvents() {
   elements.directAuthForm?.addEventListener("submit", startDirectAuth);
   elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);
   elements.copySgateLinkButton?.addEventListener("click", copySgateInviteLink);
+  elements.copyManagementLinkButton?.addEventListener("click", copyManagementPageLink);
   elements.appLoginLink?.addEventListener("click", beginDiscordLogin);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
 }
