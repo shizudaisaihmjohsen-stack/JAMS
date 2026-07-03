@@ -160,6 +160,23 @@ async function route(request, env, ctx) {
     return sendSelectedDirectMessages(request, env);
   }
 
+  if (request.method === "GET" && url.pathname === "/admin/direct-dm") {
+    await requireAdminSession(request, env);
+    return new Response(`<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Discord DM</title><style>body{font-family:sans-serif;max-width:720px;margin:40px auto;padding:0 20px}label{display:block;margin:18px 0 6px;font-weight:700}input,textarea,button{box-sizing:border-box;width:100%;padding:12px;font:inherit}button{margin-top:18px;cursor:pointer}</style><h1>Discord ID直接DM</h1><form method="post"><label>DiscordユーザーID</label><input name="discordUserId" inputmode="numeric" required pattern="[0-9]{17,20}"><label>本文</label><textarea name="message" rows="10" required maxlength="1800"></textarea><button type="submit">DM送信</button></form></html>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  }
+
+  if (request.method === "POST" && url.pathname === "/admin/direct-dm") {
+    await requireAdminSession(request, env);
+    const form = await request.formData();
+    const discordUserId = String(form.get("discordUserId") ?? "").trim();
+    const message = String(form.get("message") ?? "").trim();
+    if (!/^\d{17,20}$/.test(discordUserId) || !message || message.length > 1800) {
+      return new Response("入力内容が正しくありません。", { status: 400 });
+    }
+    const sentMessage = await sendDirectMessage(discordUserId, buildSelectedDmMessage(message), env);
+    return new Response(`DMを送信しました。Message ID: ${sentMessage?.id ?? ""}`, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
+
   return json({ error: "not_found" }, 404, request, env);
 }
 
