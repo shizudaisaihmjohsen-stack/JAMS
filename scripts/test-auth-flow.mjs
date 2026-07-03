@@ -283,6 +283,13 @@ try {
   });
   assert(invalidExchange.status === 401, "Unknown app exchange token was accepted");
 
+  const unauthorizedSelectedDm = await fetch(`${workerBaseUrl}/api/admin/members/dm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ memberNos: ["J1"], message: "test" }),
+  });
+  assert(unauthorizedSelectedDm.status === 401, "Selected DM endpoint accepted an unauthenticated request");
+
   console.log("OK OAuth concurrency, one-time state use, auth schema, and migration checks passed.");
 } catch (error) {
   if (workerOutput) console.error(workerOutput);

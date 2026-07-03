@@ -268,12 +268,16 @@
           </div>
 
           <div class="screen-control-panel management-dm-panel">
+            <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
+              <label><input type="radio" name="dmTargetMode" value="absence" checked> 欠席者</label>
+              <label><input type="radio" name="dmTargetMode" value="selected"> 個別選択</label>
+            </div>
             <div class="management-dm-head">
               <div>
                 <p class="panel-kicker">Discord DM</p>
-                <h3>全体会未参加者への一括連絡</h3>
+                <h3 id="dmPanelTitle">全体会未参加者への一括連絡</h3>
               </div>
-              <div class="control-field">
+              <div id="dmMeetingField" class="control-field">
                 <label for="dmMeetingSelect">対象の全体会</label>
                 <select id="dmMeetingSelect">
                   <option value="新歓">新歓</option>
@@ -284,6 +288,18 @@
                   <option value="第5回">第5回</option>
                 </select>
               </div>
+            </div>
+            <div id="dmMemberPicker" class="dm-member-picker" hidden>
+              <div class="dm-member-picker-toolbar">
+                <label for="dmMemberSearch">送信する部員を選択</label>
+                <input id="dmMemberSearch" type="search" placeholder="部員No.・氏名・学籍番号で検索">
+                <div class="buttons">
+                  <button class="secondary" type="button" id="selectVisibleDmMembersButton">表示中を選択</button>
+                  <button class="secondary" type="button" id="clearDmMembersButton">選択解除</button>
+                </div>
+              </div>
+              <p id="dmSelectedCount" class="dm-selected-count">0人選択中</p>
+              <div id="dmMemberOptions" class="dm-member-options"></div>
             </div>
             <label for="dmMessage">送信メッセージ</label>
             <textarea id="dmMessage" rows="6">情報宣伝部です。

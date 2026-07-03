@@ -156,6 +156,10 @@ async function route(request, env, ctx) {
     return sendAbsenceDirectMessages(request, env);
   }
 
+  if (request.method === "POST" && url.pathname === "/api/admin/members/dm") {
+    return sendSelectedDirectMessages(request, env);
+  }
+
   return json({ error: "not_found" }, 404, request, env);
 }
 
@@ -1449,6 +1453,79 @@ async function hashVerificationToken(token, env) {
   return hmac(`token:${token}`, getSessionSecret(env));
 }
 
+async function sendSelectedDirectMessages(request, env) {
+  const session = await requireAdminSession(request, env);
+  if (!env.DISCORD_BOT_TOKEN) {
+    throw new Error("Missing required env: DISCORD_BOT_TOKEN");
+  }
+
+  const body = await readJson(request);
+  const memberNos = [...new Set(
+    (Array.isArray(body.memberNos) ? body.memberNos : [])
+      .map((value) => String(value ?? "").trim())
+      .filter((value) => /^[CRSJ][1-9]\d*$/.test(value)),
+  )];
+  const message = String(body.message ?? "").trim();
+  if (!memberNos.length || memberNos.length > 100) {
+    return json({ error: "invalid_recipients" }, 400, request, env);
+  }
+  if (!message || message.length > 1800) {
+    return json({ error: "invalid_message", message: "メッセージは1文字以上1800文字以内で入力してください。" }, 400, request, env);
+  }
+
+  const placeholders = memberNos.map(() => "?").join(", ");
+  const result = await env.DB.prepare(`
+    SELECT member_no, name, discord_user_id
+    FROM members
+    WHERE member_no IN (${placeholders})
+  `).bind(...memberNos).all();
+  const memberByNo = new Map((result.results ?? []).map((member) => [member.member_no, member]));
+  const selectedMembers = memberNos.map((memberNo) => memberByNo.get(memberNo)).filter(Boolean);
+  const sendableMembers = selectedMembers.filter((member) => String(member.discord_user_id ?? "").trim());
+  const skippedNoDiscord = selectedMembers.length - sendableMembers.length;
+  const notFound = memberNos.length - selectedMembers.length;
+  const sendResults = [];
+
+  for (const member of sendableMembers) {
+    try {
+      const sentMessage = await sendDirectMessage(
+        member.discord_user_id,
+        buildSelectedDmMessage(message),
+        env,
+      );
+      sendResults.push({
+        memberNo: member.member_no,
+        name: member.name,
+        discordUserId: member.discord_user_id,
+        ok: true,
+        messageId: sentMessage?.id ?? "",
+      });
+    } catch (error) {
+      console.warn(`Failed to send selected DM to ${member.member_no}: ${error.message}`);
+      sendResults.push({
+        memberNo: member.member_no,
+        name: member.name,
+        discordUserId: member.discord_user_id,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const sent = sendResults.filter((entry) => entry.ok).length;
+  const failed = sendResults.length - sent;
+  return json({
+    ok: failed === 0 && notFound === 0,
+    targeted: memberNos.length,
+    sent,
+    failed,
+    skippedNoDiscord,
+    notFound,
+    results: sendResults,
+    sentBy: session.userId,
+  }, 200, request, env);
+}
+
 function getDiscordGateway(env) {
   if (!env.DISCORD_GATEWAY) {
     throw new Error("Missing required binding: DISCORD_GATEWAY");
@@ -1889,6 +1966,14 @@ async function hmac(value, secret) {
   );
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return base64UrlEncode(new Uint8Array(signature));
+}
+
+function buildSelectedDmMessage(message) {
+  return [
+    "【JAMS / S-GATE 個別連絡】",
+    "",
+    message,
+  ].join("\n");
 }
 
 export { getGuildJoinFailureStatus, provisionVerifiedDiscordMember };

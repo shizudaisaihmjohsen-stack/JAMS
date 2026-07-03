@@ -5883,6 +5883,113 @@
       letter-spacing: .08em;
     }
 
+    #view-settings .dm-mode-switch {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      justify-self: start;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    #view-settings .dm-mode-switch label {
+      min-height: 36px;
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border-radius: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #view-settings .dm-mode-switch label:has(input:checked) {
+      background: var(--blue-deep);
+      color: #fff;
+    }
+
+    #view-settings .dm-member-picker {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    #view-settings .dm-member-picker[hidden] {
+      display: none !important;
+    }
+
+    #view-settings .dm-member-picker-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 8px 12px;
+      align-items: end;
+    }
+
+    #view-settings .dm-member-picker-toolbar > label {
+      grid-column: 1 / -1;
+      color: var(--blue-deep);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    #view-settings .dm-member-picker-toolbar .buttons {
+      flex-wrap: nowrap;
+      margin: 0;
+    }
+
+    #view-settings .dm-selected-count {
+      margin: 0;
+      color: var(--blue-deep);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    #view-settings .dm-member-options {
+      max-height: 260px;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    #view-settings .dm-member-option {
+      min-width: 0;
+      padding: 9px 10px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(248, 253, 255, .72);
+      cursor: pointer;
+    }
+
+    #view-settings .dm-member-option span,
+    #view-settings .dm-member-option small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #view-settings .dm-member-option small {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    #view-settings .dm-member-option.is-disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
     #view-settings .management-dm-panel textarea {
       width: 100%;
       min-height: 132px;
@@ -6632,6 +6739,16 @@
 
       #view-settings .management-dm-head {
         grid-template-columns: 1fr !important;
+      }
+
+      #view-settings .dm-member-picker-toolbar,
+      #view-settings .dm-member-options {
+        grid-template-columns: 1fr;
+      }
+
+      #view-settings .dm-member-picker-toolbar .buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       #view-settings .management-stat-grid {

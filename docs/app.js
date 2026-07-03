@@ -76,6 +76,7 @@ let directAuthEmail = "";
 let loginBroadcastChannel = null;
 let loginRefreshInProgress = false;
 let loginAttemptTimer = null;
+const selectedDmMemberNos = new Set();
 
 const TAB_INSTANCE_ID = typeof crypto.randomUUID === "function"
   ? crypto.randomUUID()
@@ -328,6 +329,12 @@ const elements = {
   discordLoginLink: $("discordLoginLink"),
   previewDmButton: $("previewDmButton"),
   sendDmButton: $("sendDmButton"),
+  dmMemberPicker: $("dmMemberPicker"),
+  dmMemberSearch: $("dmMemberSearch"),
+  dmMemberOptions: $("dmMemberOptions"),
+  dmSelectedCount: $("dmSelectedCount"),
+  selectVisibleDmMembersButton: $("selectVisibleDmMembersButton"),
+  clearDmMembersButton: $("clearDmMembersButton"),
   adminStatusText: $("adminStatusText"),
   tableBody: $("memberTableBody"),
   totalCount: $("totalCount"),
@@ -883,6 +890,7 @@ function renderAll() {
   renderStats();
   renderManagementTable();
   renderList();
+  renderDmMemberPicker();
 }
 
 function getDefaultViewForAccess() {
@@ -1250,6 +1258,45 @@ async function confirmDirectAuth(event) {
   }
 }
 
+function getDmTargetMode() {
+  return document.querySelector('input[name="dmTargetMode"]:checked')?.value || "absence";
+}
+
+function getFilteredDmMembers() {
+  const keyword = normalize(elements.dmMemberSearch?.value).toLowerCase();
+  if (!keyword) return members;
+  return members.filter((member) => [member.memberNo, member.name, member.kana, member.studentId]
+    .some((value) => normalize(value).toLowerCase().includes(keyword)));
+}
+
+function renderDmMemberPicker() {
+  if (!elements.dmMemberOptions) return;
+  const existingMemberNos = new Set(members.map((member) => member.memberNo));
+  for (const memberNo of selectedDmMemberNos) {
+    if (!existingMemberNos.has(memberNo)) selectedDmMemberNos.delete(memberNo);
+  }
+  const visibleMembers = getFilteredDmMembers();
+  elements.dmMemberOptions.innerHTML = visibleMembers.map((member) => {
+    const disabled = !member.discordUserId;
+    return `<label class="dm-member-option${disabled ? " is-disabled" : ""}">
+      <input type="checkbox" value="${escapeHtml(member.memberNo)}"${selectedDmMemberNos.has(member.memberNo) ? " checked" : ""}${disabled ? " disabled" : ""}>
+      <span><strong>${escapeHtml(member.memberNo)}</strong> ${escapeHtml(member.name)}</span>
+      <small>${disabled ? "Discord未連携" : escapeHtml(member.studentId)}</small>
+    </label>`;
+  }).join("") || '<p class="hint">該当する部員がいません。</p>';
+  if (elements.dmSelectedCount) elements.dmSelectedCount.textContent = `${selectedDmMemberNos.size}人選択中`;
+}
+
+function updateDmTargetMode() {
+  const selectedMode = getDmTargetMode() === "selected";
+  if (elements.dmMemberPicker) elements.dmMemberPicker.hidden = !selectedMode;
+  if ($("dmMeetingField")) $("dmMeetingField").hidden = selectedMode;
+  if ($("dmPanelTitle")) $("dmPanelTitle").textContent = selectedMode ? "選択した部員への個別連絡" : "全体会未参加者への一括連絡";
+  if (elements.sendDmButton) elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "未参加者へDM送信";
+  if ($("dmPreview")) $("dmPreview").hidden = true;
+  renderDmMemberPicker();
+}
+
 function getDmTargetPreview() {
   const meeting = $("dmMeetingSelect")?.value || MEETING_LABELS[0];
   const absentMembers = members.filter((member) => member.meetings?.[meeting] !== "出席");
@@ -1259,6 +1306,14 @@ function getDmTargetPreview() {
 }
 
 function previewAbsenceDmTargets() {
+  if (getDmTargetMode() === "selected") {
+    const selectedMembers = members.filter((member) => selectedDmMemberNos.has(member.memberNo));
+    $("dmPreview").hidden = false;
+    $("dmPreview").textContent = selectedMembers.length
+      ? `DM送信対象は${selectedMembers.length}人です。${selectedMembers.slice(0, 8).map((member) => `${member.memberNo} ${member.name}`).join("、")}`
+      : "送信する部員を選択してください。";
+    return;
+  }
   const { meeting, absentMembers, sendableMembers, missingDiscordMembers } = getDmTargetPreview();
   const missingText = missingDiscordMembers.length
     ? ` Discord ID未取得のため送信できない部員が${missingDiscordMembers.length}人います。`
@@ -1273,6 +1328,7 @@ async function sendAbsenceDm() {
     showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
     return;
   }
+  const selectedMode = getDmTargetMode() === "selected";
   const meeting = $("dmMeetingSelect")?.value || MEETING_LABELS[0];
   const message = normalize($("dmMessage")?.value);
   if (!message) {
@@ -1281,13 +1337,21 @@ async function sendAbsenceDm() {
     return;
   }
   const { sendableMembers, missingDiscordMembers } = getDmTargetPreview();
-  const confirmText = [
-    `${meeting}の未参加者へDiscord DMを送信します。`,
-    `画面上の送信対象: ${sendableMembers.length}人`,
-    missingDiscordMembers.length ? `Discord ID未取得: ${missingDiscordMembers.length}人` : "",
-    "",
-    "送信後は取り消せません。実行しますか？",
-  ].filter(Boolean).join("\n");
+  const selectedMembers = members.filter((member) => selectedDmMemberNos.has(member.memberNo));
+  if (selectedMode && !selectedMembers.length) {
+    $("dmPreview").textContent = "送信する部員を選択してください。";
+    $("dmPreview").hidden = false;
+    return;
+  }
+  const confirmText = selectedMode
+    ? [`選択した${selectedMembers.length}人へDiscord DMを送信します。`, "", "送信後は取り消せません。実行しますか？"].join("\n")
+    : [
+      `${meeting}の未参加者へDiscord DMを送信します。`,
+      `画面上の送信対象: ${sendableMembers.length}人`,
+      missingDiscordMembers.length ? `Discord ID未取得: ${missingDiscordMembers.length}人` : "",
+      "",
+      "送信後は取り消せません。実行しますか？",
+    ].filter(Boolean).join("\n");
   if (!confirm(confirmText)) return;
 
   elements.sendDmButton.disabled = true;
@@ -1295,19 +1359,23 @@ async function sendAbsenceDm() {
   $("dmPreview").textContent = "DMを送信しています。画面を閉じずにお待ちください。";
   $("dmPreview").hidden = false;
   try {
-    const response = await sgateFetch("/api/admin/meetings/absentees/dm", {
+    const response = await sgateFetch(selectedMode ? "/api/admin/members/dm" : "/api/admin/meetings/absentees/dm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meeting, message }),
+      body: JSON.stringify(selectedMode
+        ? { memberNos: selectedMembers.map((member) => member.memberNo), message }
+        : { meeting, message }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || data.error || "DM送信に失敗しました。");
-    $("dmPreview").textContent = `${data.meeting}の未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`;
+    $("dmPreview").textContent = selectedMode
+      ? `選択した${data.targeted}人中、${data.sent}人へDMを送信しました。Discord未連携: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`
+      : `${data.meeting}の未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`;
   } catch (error) {
     $("dmPreview").textContent = `DM送信エラー: ${error.message}`;
   } finally {
     elements.sendDmButton.disabled = false;
-    elements.sendDmButton.textContent = "未参加者へDM送信";
+    elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "未参加者へDM送信";
     await refreshAdminStatus();
   }
 }
@@ -1429,6 +1497,23 @@ function wireEvents() {
   elements.copyManagementLinkButton?.addEventListener("click", copyManagementPageLink);
   elements.appLoginLink?.addEventListener("click", beginDiscordLogin);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
+  document.querySelectorAll('input[name="dmTargetMode"]').forEach((input) => input.addEventListener("change", updateDmTargetMode));
+  elements.dmMemberSearch?.addEventListener("input", renderDmMemberPicker);
+  elements.dmMemberOptions?.addEventListener("change", (event) => {
+    const checkbox = event.target.closest('input[type="checkbox"]');
+    if (!checkbox) return;
+    if (checkbox.checked) selectedDmMemberNos.add(checkbox.value);
+    else selectedDmMemberNos.delete(checkbox.value);
+    renderDmMemberPicker();
+  });
+  elements.selectVisibleDmMembersButton?.addEventListener("click", () => {
+    getFilteredDmMembers().filter((member) => member.discordUserId).forEach((member) => selectedDmMemberNos.add(member.memberNo));
+    renderDmMemberPicker();
+  });
+  elements.clearDmMembersButton?.addEventListener("click", () => {
+    selectedDmMemberNos.clear();
+    renderDmMemberPicker();
+  });
 }
 
 window.showProfileByNumber = showProfileByNumber;
@@ -1454,4 +1539,5 @@ wireEvents();
 initializeLoginCoordination();
 updateDerivedPreview();
 updateSgateInviteLink();
+updateDmTargetMode();
 loadAppBootstrap();
