@@ -88,7 +88,7 @@ async function route(request, env, ctx) {
     return startDiscordLogin(request, env, ctx, getAuthFrontendUrl(request, env));
   }
 
-  if (request.method === "GET" && url.pathname === "/sgate/admin/login") {
+  if (request.method === "GET" && url.pathname === "/sgate/manage") {
     return startDiscordLogin(request, env, ctx, getFrontendUrl(request, env));
   }
 

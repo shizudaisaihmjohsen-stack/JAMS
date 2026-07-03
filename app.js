@@ -1426,7 +1426,7 @@ window.editMember = editMember;
 window.deleteMember = deleteMember;
 
 if (sGateBaseUrl) {
-  const appLoginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/admin/login`;
+  const appLoginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/manage`;
   if (elements.discordLoginLink) {
     elements.discordLoginLink.href = appLoginUrl;
     elements.discordLoginLink.removeAttribute("aria-disabled");

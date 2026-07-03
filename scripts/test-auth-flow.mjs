@@ -266,6 +266,10 @@ try {
   const legacyResult = await cancelLogin(legacyState);
   assert(legacyResult.pathname.endsWith("/JAMS/auth.html"), "Legacy authentication URL could return to the management page");
 
+  const managementState = await startLogin("/sgate/manage");
+  const managementResult = await cancelLogin(managementState);
+  assert(managementResult.pathname.endsWith("/JAMS/"), "Management login did not return to the management page");
+
   const replay = await cancelLogin(stateA);
   assert(replay.searchParams.get("status") === "state_error", "Consumed state could be replayed");
 
