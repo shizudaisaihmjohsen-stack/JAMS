@@ -3,7 +3,7 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./service-worker.js", {
       scope: "./",
       updateViaCache: "none",
-    }).catch((error) => {
+    }).then((registration) => registration.update()).catch((error) => {
       console.warn("JAMS service worker registration failed", error);
     });
   });

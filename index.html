@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260702-6">
+    <link rel="stylesheet" href="styles.css?v=20260703-2">
   </head>
   <body>
     <header class="site-header">
@@ -331,8 +331,18 @@
       </section>
     </main>
 
+    <script>
+      if ("serviceWorker" in navigator) {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+      }
+    </script>
     <script src="config.js?v=20260619"></script>
-    <script src="app.js?v=20260702-6"></script>
-    <script src="pwa.js?v=20260701-1" defer></script>
+    <script src="app.js?v=20260703-2"></script>
+    <script src="pwa.js?v=20260703-2" defer></script>
   </body>
 </html>
