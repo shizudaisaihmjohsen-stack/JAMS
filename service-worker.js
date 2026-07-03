@@ -1,10 +1,12 @@
-const CACHE_NAME = "jams-shell-20260702-8";
+const CACHE_NAME = "jams-shell-20260703-1";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./auth.html",
   "./verify.html",
   "./styles.css",
   "./app.js",
+  "./auth.js",
   "./config.js",
   "./pwa.js",
   "./manifest.webmanifest",
@@ -40,7 +42,11 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => {
-        const fallback = url.pathname.endsWith("/verify.html") ? "./verify.html" : "./index.html";
+        const fallback = url.pathname.endsWith("/verify.html")
+          ? "./verify.html"
+          : url.pathname.endsWith("/auth.html")
+            ? "./auth.html"
+            : "./index.html";
         return caches.match(new URL(fallback, self.location.href).toString());
       }),
     );

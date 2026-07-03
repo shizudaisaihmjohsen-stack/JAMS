@@ -2,8 +2,10 @@ import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 
 const publicFiles = [
   "index.html",
+  "auth.html",
   "styles.css",
   "app.js",
+  "auth.js",
   "verify.html",
   "config.js",
   "manifest.webmanifest",

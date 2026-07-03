@@ -5779,6 +5779,42 @@
       }
     }
 
+    .auth-only-main {
+      padding-top: clamp(36px, 8vh, 88px);
+      padding-bottom: 56px;
+    }
+
+    .auth-only-page #discordAuthLink {
+      min-width: 220px;
+      min-height: 46px;
+      padding: 0 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      white-space: nowrap;
+      background: var(--blue-deep);
+      color: #fff;
+      border: 0;
+      border-radius: 4px;
+      box-shadow: 0 8px 20px rgba(47, 127, 182, .24);
+    }
+
+    .auth-only-page #verificationCode {
+      height: 58px;
+      text-align: center;
+      font-size: 26px;
+      letter-spacing: .28em;
+      font-weight: 700;
+      font-family: "Inter", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic", "YuGothic", "Meiryo", system-ui, sans-serif;
+    }
+
+    @media(max-width: 640px) {
+      .auth-only-page #discordAuthLink {
+        width: 100%;
+      }
+    }
+
     .logout-button {
       flex: 0 0 auto;
       min-width: 92px;

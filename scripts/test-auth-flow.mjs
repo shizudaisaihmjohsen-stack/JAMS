@@ -116,8 +116,8 @@ async function waitForWorker(processHandle) {
   throw new Error("Timed out waiting for wrangler dev");
 }
 
-async function startLogin(returnTo) {
-  const response = await fetch(`${workerBaseUrl}/sgate/login?return_to=${encodeURIComponent(returnTo)}`, {
+async function startLogin(path = "/sgate/auth") {
+  const response = await fetch(`${workerBaseUrl}${path}`, {
     redirect: "manual",
   });
   assert(response.status === 302, `login start returned ${response.status}`);
@@ -250,19 +250,21 @@ worker.stderr.on("data", (chunk) => { workerOutput += chunk; });
 try {
   await waitForWorker(worker);
 
-  const returnToA = "https://shizudaisaihmjohsen-stack.github.io/JAMS/?flow=a";
-  const returnToB = "https://shizudaisaihmjohsen-stack.github.io/JAMS/?flow=b";
-  const stateA = await startLogin(returnToA);
-  const stateB = await startLogin(returnToB);
+  const stateA = await startLogin();
+  const stateB = await startLogin();
   assert(stateA !== stateB, "Concurrent login attempts received the same state");
 
   const resultB = await cancelLogin(stateB);
-  assert(resultB.searchParams.get("flow") === "b", "Second flow lost its return URL");
+  assert(resultB.pathname.endsWith("/JAMS/auth.html"), "Authentication flow did not return to the authentication page");
   assert(resultB.searchParams.get("status") === "discord_error", "Second flow did not complete independently");
 
   const resultA = await cancelLogin(stateA);
-  assert(resultA.searchParams.get("flow") === "a", "First flow lost its return URL");
+  assert(resultA.pathname.endsWith("/JAMS/auth.html"), "Concurrent authentication flow changed its return page");
   assert(resultA.searchParams.get("status") === "discord_error", "First flow was overwritten by the second flow");
+
+  const legacyState = await startLogin("/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F");
+  const legacyResult = await cancelLogin(legacyState);
+  assert(legacyResult.pathname.endsWith("/JAMS/auth.html"), "Legacy authentication URL could return to the management page");
 
   const replay = await cancelLogin(stateA);
   assert(replay.searchParams.get("status") === "state_error", "Consumed state could be replayed");

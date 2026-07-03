@@ -66,11 +66,19 @@ S-GATEは、JAMSの中に含まれるDiscord認証機能だけを指します。
 
 本人確認の確定とDiscordロール同期は分離しています。Discord APIの一時障害や一部ロールの階層エラーがあっても、完了済みの本人確認を失敗扱いに戻しません。同期警告は記録され、次回ログインで再試行されます。
 
-S-GATE認証リンク:
+S-GATE認証リンク（部員向け）:
 
 ```text
-https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F
+https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/auth
 ```
+
+JAMS管理画面（管理者向け）:
+
+```text
+https://shizudaisaihmjohsen-stack.github.io/JAMS/
+```
+
+認証専用画面は `auth.html`、管理画面は `index.html` に分離されています。認証リンクから管理画面へ遷移することはありません。
 
 予備方式として、Discordサーバー内の `/auth` コマンドから認証コードを送るフローも残しています。
 

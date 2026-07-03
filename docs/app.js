@@ -1039,8 +1039,7 @@ function setDirectCodeMode(enabled) {
 
 function buildSgateInviteLink() {
   if (!sGateBaseUrl) return "";
-  const loginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/login`;
-  return `${loginUrl}?return_to=${encodeURIComponent(PUBLIC_JAMS_URL)}`;
+  return `${sGateBaseUrl.replace(/\/$/, "")}/sgate/auth`;
 }
 
 function updateSgateInviteLink() {
@@ -1427,8 +1426,7 @@ window.editMember = editMember;
 window.deleteMember = deleteMember;
 
 if (sGateBaseUrl) {
-  const loginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/login`;
-  const appLoginUrl = `${loginUrl}?return_to=${encodeURIComponent(window.location.href.split("#")[0])}`;
+  const appLoginUrl = `${sGateBaseUrl.replace(/\/$/, "")}/sgate/admin/login`;
   if (elements.discordLoginLink) {
     elements.discordLoginLink.href = appLoginUrl;
     elements.discordLoginLink.removeAttribute("aria-disabled");

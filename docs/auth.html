@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#2f7fb6">
+    <title>S-GATE | 情報宣伝部 部員認証</title>
+    <link rel="icon" type="image/png" href="assets/hm-logo-transparent.png?v=20260622-1">
+    <link rel="apple-touch-icon" href="assets/hm-logo.png?v=20260622-1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=20260703-1">
+  </head>
+  <body class="auth-only-page">
+    <header class="site-header">
+      <div class="wrap site-header-inner">
+        <div class="brand">
+          <div class="brand-mark"><img src="assets/hm-logo-transparent.png" alt="浜松静大祭実行委員会"></div>
+          <div>
+            <div class="brand-kicker">浜松静大祭実行委員会</div>
+            <h1>情報宣伝部 部員認証</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap auth-only-main">
+      <section id="view-login" class="view">
+        <div class="card login-card auth-only-card">
+          <p class="section-en">S-GATE</p>
+          <h2 id="authTitle">Discord認証</h2>
+
+          <div class="screen-control-panel login-panel">
+            <div id="discordStep" class="login-action-box">
+              <a id="discordAuthLink" class="primary" href="#" aria-disabled="true">Discordで認証を開始</a>
+            </div>
+
+            <form id="memberAuthForm" class="direct-auth-form" hidden>
+              <div class="row">
+                <div>
+                  <label for="studentId">学籍番号</label>
+                  <input id="studentId" autocomplete="off" placeholder="525A2001" maxlength="8" required>
+                </div>
+                <div>
+                  <label for="email">大学メールアドレス</label>
+                  <input id="email" type="email" autocomplete="email" placeholder="example.25@shizuoka.ac.jp" required>
+                </div>
+              </div>
+              <button id="sendCodeButton" class="primary" type="submit">認証コードを送信</button>
+            </form>
+
+            <form id="codeForm" class="direct-auth-form" hidden>
+              <label for="verificationCode">認証コード</label>
+              <input id="verificationCode" autocomplete="one-time-code" inputmode="numeric" placeholder="123456" maxlength="6" required>
+              <button id="confirmButton" class="primary" type="submit">認証を完了</button>
+            </form>
+
+            <div id="authMessage" class="form-status" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="config.js?v=20260703-1"></script>
+    <script src="auth.js?v=20260703-1"></script>
+  </body>
+</html>

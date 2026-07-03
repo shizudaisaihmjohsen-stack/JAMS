@@ -81,7 +81,15 @@ async function route(request, env, ctx) {
   }
 
   if (request.method === "GET" && url.pathname === "/sgate/login") {
-    return startDiscordLogin(request, env, ctx);
+    return startDiscordLogin(request, env, ctx, getAuthFrontendUrl(request, env));
+  }
+
+  if (request.method === "GET" && url.pathname === "/sgate/auth") {
+    return startDiscordLogin(request, env, ctx, getAuthFrontendUrl(request, env));
+  }
+
+  if (request.method === "GET" && url.pathname === "/sgate/admin/login") {
+    return startDiscordLogin(request, env, ctx, getFrontendUrl(request, env));
   }
 
   if (request.method === "GET" && url.pathname === "/sgate/callback") {
@@ -286,12 +294,14 @@ function getModalValues(interaction) {
   return values;
 }
 
-async function startDiscordLogin(request, env, ctx) {
+async function startDiscordLogin(request, env, ctx, fixedReturnTo = "") {
   assertRequiredEnv(env);
   const url = new URL(request.url);
   const redirectUri = getRedirectUri(request, env);
   const state = generateVerificationToken();
-  const returnTo = sanitizeReturnTo(url.searchParams.get("return_to"), env) || getFrontendUrl(request, env);
+  const returnTo = fixedReturnTo
+    || sanitizeReturnTo(url.searchParams.get("return_to"), env)
+    || getFrontendUrl(request, env);
   try {
     await storeOAuthLoginState(state, returnTo, env);
   } catch (error) {
@@ -2006,6 +2016,10 @@ function loginResultRedirect(request, env, frontendUrl, status, options = {}) {
     }));
   }
   return new Response(null, { status: 302, headers });
+}
+
+function getAuthFrontendUrl(request, env) {
+  return new URL("auth.html", getFrontendUrl(request, env)).toString();
 }
 
 function logAuthFailure(stage, error, details = {}) {
