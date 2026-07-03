@@ -395,6 +395,7 @@ async function handleDiscordCallback(request, env) {
     const linkedMember = await findMemberByDiscordUserId(user.id, env);
     if (linkedMember?.verified_at) {
       await syncVerifiedDiscordMember(user.id, linkedMember, env, "S-GATE login verified");
+      await updateMemberDiscordUsername(user.id, user.username, env);
     } else {
       await addRoleBestEffort(user.id, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, "S-GATE login");
     }
@@ -757,7 +758,13 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
       UPDATE members
       SET discord_user_id = ?, discord_username = ?, verified_at = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND (discord_user_id IS NULL OR discord_user_id = ?)
-    `).bind(discordUserId, clean(discordUsername), new Date().toISOString(), member.id, discordUserId).run();
+    `).bind(
+      discordUserId,
+      sync.discordUsername || clean(discordUsername),
+      new Date().toISOString(),
+      member.id,
+      discordUserId,
+    ).run();
   } catch (error) {
     await removeRoleBestEffort(discordUserId, sync.verifiedRoleId, env, "S-GATE verification rollback");
     throw error;
@@ -1453,6 +1460,16 @@ async function hashVerificationToken(token, env) {
   return hmac(`token:${token}`, getSessionSecret(env));
 }
 
+async function updateMemberDiscordUsername(discordUserId, discordUsername, env) {
+  const username = clean(discordUsername);
+  if (!discordUserId || !username) return;
+  await env.DB.prepare(`
+    UPDATE members
+    SET discord_username = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE discord_user_id = ? AND COALESCE(discord_username, '') <> ?
+  `).bind(username, discordUserId, username).run();
+}
+
 async function sendSelectedDirectMessages(request, env) {
   const session = await requireAdminSession(request, env);
   if (!env.DISCORD_BOT_TOKEN) {
@@ -1727,7 +1744,12 @@ async function provisionVerifiedDiscordMember(userId, member, env, reason) {
       throw new Error("Discord role assignment could not be confirmed");
     }
 
-    return { roleNames, warnings, verifiedRoleId: verifiedRole.id };
+    return {
+      roleNames,
+      warnings,
+      verifiedRoleId: verifiedRole.id,
+      discordUsername: clean(guildMember.user?.username),
+    };
   } catch (error) {
     if (verifiedRoleAdded) {
       await removeRoleBestEffort(userId, verifiedRole.id, env, "S-GATE verification rollback");

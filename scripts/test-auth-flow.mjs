@@ -43,12 +43,13 @@ globalThis.fetch = async (url, init = {}) => {
   const path = new URL(url).pathname;
   roleRequests.push({ path, method: init.method ?? "GET" });
   if ((init.method ?? "GET") === "GET") {
-    return Response.json({ roles: ["jc", "verified"] });
+    return Response.json({ roles: ["jc", "verified"], user: { username: "test-user" } });
   }
   if (init.method === "PATCH") return Response.json({});
   return new Response(null, { status: 204 });
 };
-await provisionVerifiedDiscordMember("user", roleTestMember, roleTestEnv, "test");
+const provisionedMember = await provisionVerifiedDiscordMember("user", roleTestMember, roleTestEnv, "test");
+assert(provisionedMember.discordUsername === "test-user", "Canonical Discord username was not captured");
 const addedRoles = roleRequests
   .filter((request) => request.method === "PUT")
   .map((request) => request.path.split("/").at(-1));
