@@ -1,4 +1,4 @@
-const CACHE_NAME = "jams-shell-20260703-4";
+const CACHE_NAME = "jams-shell-20260703-5";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -55,6 +55,6 @@ self.addEventListener("fetch", (event) => {
 
   if (!CACHEABLE_PATHS.has(url.pathname)) return;
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then((cached) => cached || fetch(request)),
+    fetch(request).catch(() => caches.match(new URL(url.pathname, self.location.origin).toString())),
   );
 });
