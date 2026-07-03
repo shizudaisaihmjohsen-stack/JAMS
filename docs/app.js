@@ -1264,9 +1264,20 @@ function getDmTargetMode() {
 
 function getFilteredDmMembers() {
   const keyword = normalize(elements.dmMemberSearch?.value).toLowerCase();
-  if (!keyword) return members;
-  return members.filter((member) => [member.memberNo, member.name, member.kana, member.studentId]
-    .some((value) => normalize(value).toLowerCase().includes(keyword)));
+  const filteredMembers = keyword
+    ? members.filter((member) => [member.memberNo, member.name, member.kana, member.studentId]
+      .some((value) => normalize(value).toLowerCase().includes(keyword)))
+    : members;
+  const committeeOrder = new Map([
+    ["RC", 0],
+    ["SV", 1],
+    ["JC", 2],
+    [ROLE_NAMES.chairperson, 3],
+  ]);
+  return [...filteredMembers].sort((a, b) => {
+    const committeeDifference = (committeeOrder.get(a.committeeType) ?? 99) - (committeeOrder.get(b.committeeType) ?? 99);
+    return committeeDifference || compareMemberNo(a, b);
+  });
 }
 
 function renderDmMemberPicker() {
