@@ -177,6 +177,35 @@ async function route(request, env, ctx) {
     return new Response(`DMを送信しました。Message ID: ${sentMessage?.id ?? ""}`, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 
+  if (request.method === "GET" && url.pathname === "/sgate/manual-verify") {
+    await requireAdminSession(request, env);
+    return new Response(`<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>手動認証</title><style>body{font-family:sans-serif;max-width:640px;margin:40px auto;padding:0 20px}label{display:block;margin:18px 0 6px;font-weight:700}input,button{box-sizing:border-box;width:100%;padding:12px;font:inherit}button{margin-top:20px;cursor:pointer}</style><h1>部員の手動認証</h1><form method="post"><label>部員ナンバー</label><input name="memberNo" required pattern="[CRSJ][1-9][0-9]*"><label>学籍番号</label><input name="studentId" required><button type="submit">在籍・ロールを確認して認証</button></form></html>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  }
+
+  if (request.method === "POST" && url.pathname === "/sgate/manual-verify") {
+    const session = await requireAdminSession(request, env);
+    const form = await request.formData();
+    const memberNo = String(form.get("memberNo") ?? "").trim().toUpperCase();
+    const studentId = String(form.get("studentId") ?? "").trim().toUpperCase();
+    const member = await env.DB.prepare(`
+      SELECT * FROM members WHERE member_no = ? AND upper(student_id) = ?
+    `).bind(memberNo, studentId).first();
+    if (!member) return new Response("部員情報が一致しません。", { status: 404 });
+    if (!member.discord_user_id) return new Response("Discord IDが未連携です。", { status: 409 });
+    const membership = await checkGuildMembership(member.discord_user_id, env);
+    if (!membership.apiAccessible) return new Response("Discordの在籍確認に失敗しました。", { status: 502 });
+    if (!membership.isMember) return new Response("Discordサーバーに在籍していません。", { status: 409 });
+    const sync = await provisionVerifiedDiscordMember(member.discord_user_id, member, env, "S-GATE admin manual verification");
+    const verifiedAt = new Date().toISOString();
+    await env.DB.prepare(`
+      UPDATE members
+      SET verified_at = ?, discord_username = COALESCE(NULLIF(?, ''), discord_username), updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(verifiedAt, sync.discordUsername, member.id).run();
+    console.log(JSON.stringify({ message: "S-GATE manual verification completed", memberNo, discordUserId: member.discord_user_id, verifiedBy: session.userId }));
+    return new Response(`${memberNo} ${member.name} を認証しました。`, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
+
   return json({ error: "not_found" }, 404, request, env);
 }
 
