@@ -27,7 +27,7 @@
 
 JAMSは、管理画面や部員データ管理を含むシステム全体を指します。
 
-S-GATEは、JAMSの中に含まれるDiscord認証機能だけを指します。APIパス、Discord Slash Command、Discordロール、認証コード画面ではS-GATEを使います。
+S-GATEは、JAMSの中に含まれるDiscord認証機能だけを指します。APIパス、Discordロール、認証コード画面ではS-GATEを使います。
 
 例:
 
@@ -75,8 +75,6 @@ https://shizudaisaihmjohsen-stack.github.io/JAMS/
 
 認証専用画面は `auth.html`、管理画面は `index.html` に分離されています。認証リンクから管理画面へ遷移することはありません。
 
-予備方式として、Discordサーバー内の `/auth` コマンドから認証コードを送るフローも残しています。
-
 管理者向けの保守機能として、Discord IDを直接指定するDM送信、特例の手動認証、Discord Gatewayの状態確認・再接続APIを残しています。いずれも管理者セッションが必要です。
 
 ## Discordロール判定
@@ -116,7 +114,7 @@ JAMS_FRONTEND_URL=https://ユーザー名.github.io/リポジトリ名/
 JAMS_FRONTEND_ORIGIN=https://ユーザー名.github.io
 ```
 
-Discord OAuth後はJAMS本体の `index.html` に戻ります。`/auth` コマンド後の認証コード入力は `verify.html` に集約しています。
+Discord OAuth後は、部員向け認証では `auth.html`、管理者ログインではJAMS本体の `index.html` に戻ります。
 
 ## Cloudflare Worker
 
@@ -142,20 +140,6 @@ npm run build:pages
 ```
 
 `.cloudflare-secrets.env` は `.gitignore` に含めています。リポジトリにはコミットしないでください。
-
-## Discord Slash Command
-
-Discordの `/auth` コマンドは次のコマンドで登録します。
-
-```sh
-npm run discord:commands
-```
-
-Discord Developer PortalのInteractions Endpoint URLには次を設定します。
-
-```text
-https://jams-s-gate.shizudaisai-hm.workers.dev/discord/interactions
-```
 
 ## メール送信
 

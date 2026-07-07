@@ -6,7 +6,6 @@ const publicFiles = [
   "styles.css",
   "app.js",
   "auth.js",
-  "verify.html",
   "config.js",
   "manifest.webmanifest",
   "pwa.js",

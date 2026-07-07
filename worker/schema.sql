@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS email_verification_challenges (
   discord_user_id TEXT NOT NULL,
   discord_username TEXT,
   code_hash TEXT NOT NULL,
-  token_hash TEXT,
   expires_at INTEGER NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
@@ -46,8 +45,6 @@ CREATE TABLE IF NOT EXISTS email_verification_challenges (
 
 CREATE INDEX IF NOT EXISTS idx_email_verification_challenges_discord_user_id
   ON email_verification_challenges(discord_user_id);
-CREATE INDEX IF NOT EXISTS idx_email_verification_challenges_token_hash
-  ON email_verification_challenges(token_hash);
 CREATE INDEX IF NOT EXISTS idx_email_verification_challenges_expires_at
   ON email_verification_challenges(expires_at);
 

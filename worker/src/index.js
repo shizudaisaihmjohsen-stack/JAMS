@@ -72,10 +72,6 @@ async function route(request, env, ctx) {
     return json({ ok: true, service: "S-GATE", discordGateway: status.status }, 200, request, env);
   }
 
-  if (request.method === "POST" && url.pathname === "/discord/interactions") {
-    return handleDiscordInteraction(request, env, ctx);
-  }
-
   if (requiresTrustedOrigin(request, url) && !isTrustedOrigin(request, env)) {
     return json({ error: "origin_not_allowed" }, 403, request, env);
   }
@@ -102,10 +98,6 @@ async function route(request, env, ctx) {
 
   if (request.method === "POST" && url.pathname === "/api/sgate/email/confirm") {
     return confirmEmailVerification(request, env);
-  }
-
-  if (request.method === "POST" && url.pathname === "/api/sgate/email/confirm-token") {
-    return confirmEmailVerificationByToken(request, env);
   }
 
   if (request.method === "GET" && url.pathname === "/api/admin/me") {
@@ -191,141 +183,6 @@ async function route(request, env, ctx) {
   }
 
   return json({ error: "not_found" }, 404, request, env);
-}
-
-async function handleDiscordInteraction(request, env, ctx) {
-  assertDiscordInteractionEnv(env);
-  const rawBody = await request.text();
-  const verified = await verifyDiscordSignature(request, rawBody, env);
-  if (!verified) {
-    return new Response("bad request signature", { status: 401 });
-  }
-
-  const interaction = JSON.parse(rawBody);
-  if (interaction.type === 1) {
-    return interactionJson({ type: 1 });
-  }
-
-  if (interaction.type === 2 && interaction.data?.name === "auth") {
-    return interactionJson(buildAuthModalResponse());
-  }
-
-  if (interaction.type === 5 && interaction.data?.custom_id === "sgate_auth_modal") {
-    ctx.waitUntil(processAuthModalSubmit(interaction, env));
-    return interactionJson({
-      type: 5,
-      data: { flags: 64 },
-    });
-  }
-
-  return interactionJson({
-    type: 4,
-    data: {
-      flags: 64,
-      content: "この操作には対応していません。",
-    },
-  });
-}
-
-function buildAuthModalResponse() {
-  return {
-    type: 9,
-    data: {
-      custom_id: "sgate_auth_modal",
-      title: "S-GATE 部員認証",
-      components: [
-        {
-          type: 1,
-          components: [{
-            type: 4,
-            custom_id: "student_id",
-            label: "学籍番号",
-            style: 1,
-            min_length: 8,
-            max_length: 8,
-            required: true,
-            placeholder: "525A1001",
-          }],
-        },
-        {
-          type: 1,
-          components: [{
-            type: 4,
-            custom_id: "email",
-            label: "大学メールアドレス",
-            style: 1,
-            required: true,
-            placeholder: "name@example.ac.jp",
-          }],
-        },
-      ],
-    },
-  };
-}
-
-async function processAuthModalSubmit(interaction, env) {
-  try {
-    const discordUser = interaction.member?.user ?? interaction.user ?? {};
-    const discordUserId = discordUser.id;
-    const discordUsername = clean(discordUser.username);
-    const values = getModalValues(interaction);
-    const studentId = String(values.student_id ?? "").trim().toUpperCase();
-    const email = normalizeEmail(values.email);
-
-    if (!discordUserId || interaction.guild_id !== env.DISCORD_GUILD_ID) {
-      await editInteractionResponse(interaction, env, "このサーバーではS-GATE認証を開始できません。");
-      return;
-    }
-
-    if (!/^[0-9A-Z]{8}$/.test(studentId) || !isValidEmail(email) || !isAllowedEmailDomain(email, env)) {
-      await editInteractionResponse(interaction, env, "学籍番号または大学メールアドレスの形式が正しくありません。");
-      return;
-    }
-
-    const member = await findMemberForEmail(email, studentId, env);
-    if (!member) {
-      await editInteractionResponse(interaction, env, "入力内容と一致する部員データが見つかりませんでした。学籍番号と大学メールを確認してください。");
-      return;
-    }
-
-    const code = generateVerificationCode();
-    const token = generateVerificationToken();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
-    const codeHash = await hashVerificationCode(email, code, env);
-    const tokenHash = await hashVerificationToken(token, env);
-
-    await storeEmailVerificationChallenge({
-      email,
-      discordUserId,
-      discordUsername,
-      codeHash,
-      tokenHash,
-      expiresAt,
-    }, env);
-
-    await sendVerificationEmail(email, code, env);
-    const verifyUrl = `${getVerificationUrlFromEnv(env)}?token=${encodeURIComponent(token)}`;
-    await editInteractionResponse(interaction, env, [
-      "大学メールに認証コードを送信しました。",
-      "下のページで6桁のコードを入力してください。",
-      verifyUrl,
-      "",
-      "有効期限は10分です。",
-    ].join("\n"));
-  } catch (error) {
-    console.error("Discord auth modal failed", error);
-    await editInteractionResponse(interaction, env, "認証処理を開始できませんでした。時間を置いてもう一度 `/auth` を実行してください。");
-  }
-}
-
-function getModalValues(interaction) {
-  const values = {};
-  for (const row of interaction.data?.components ?? []) {
-    for (const component of row.components ?? []) {
-      values[component.custom_id] = component.value;
-    }
-  }
-  return values;
 }
 
 async function startDiscordLogin(request, env, ctx, fixedReturnTo = "") {
@@ -576,17 +433,15 @@ async function storeEmailVerificationChallenge(challenge, env) {
       discord_user_id,
       discord_username,
       code_hash,
-      token_hash,
       expires_at,
       attempts,
       created_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+    VALUES (?, ?, ?, ?, ?, ?, 0, ?)
     ON CONFLICT(email, discord_user_id) DO UPDATE SET
       challenge_id = excluded.challenge_id,
       discord_username = excluded.discord_username,
       code_hash = excluded.code_hash,
-      token_hash = excluded.token_hash,
       expires_at = excluded.expires_at,
       attempts = 0,
       created_at = excluded.created_at
@@ -596,7 +451,6 @@ async function storeEmailVerificationChallenge(challenge, env) {
     challenge.discordUserId,
     clean(challenge.discordUsername),
     challenge.codeHash,
-    challenge.tokenHash,
     challenge.expiresAt,
     now,
   ).run();
@@ -639,7 +493,6 @@ async function startEmailVerification(request, env) {
       discordUserId: session.userId,
       discordUsername: clean(session.username),
       codeHash,
-      tokenHash: null,
       expiresAt,
     }, env);
 
@@ -692,40 +545,6 @@ async function confirmEmailVerification(request, env) {
   }
 
   const result = await completeMemberVerification(email, session.userId, session.username, env);
-  await env.DB.prepare(`DELETE FROM email_verification_challenges WHERE challenge_id = ?`)
-    .bind(stored.challenge_id).run();
-  return json(result, 200, request, env);
-}
-
-async function confirmEmailVerificationByToken(request, env) {
-  assertEmailEnv(env);
-  const body = await readJson(request);
-  const token = String(body.token ?? "").trim();
-  const code = String(body.code ?? "").trim();
-  if (!token || !/^\d{6}$/.test(code)) {
-    return json({ error: "invalid_code" }, 400, request, env);
-  }
-
-  const tokenHash = await hashVerificationToken(token, env);
-  const stored = await env.DB.prepare(`
-    SELECT challenge_id, email, discord_user_id, discord_username, code_hash, expires_at, attempts
-    FROM email_verification_challenges
-    WHERE token_hash = ?
-  `).bind(tokenHash).first();
-
-  if (!stored || stored.expires_at < Date.now() || stored.attempts >= 5) {
-    return json({ error: "invalid_or_expired_code" }, 400, request, env);
-  }
-
-  const expectedHash = await hashVerificationCode(stored.email, code, env);
-  if (!await constantTimeEqual(stored.code_hash, expectedHash)) {
-    await env.DB.prepare(`
-      UPDATE email_verification_challenges SET attempts = attempts + 1 WHERE challenge_id = ?
-    `).bind(stored.challenge_id).run();
-    return json({ error: "invalid_or_expired_code" }, 400, request, env);
-  }
-
-  const result = await completeMemberVerification(stored.email, stored.discord_user_id, stored.discord_username, env);
   await env.DB.prepare(`DELETE FROM email_verification_challenges WHERE challenge_id = ?`)
     .bind(stored.challenge_id).run();
   return json(result, 200, request, env);
@@ -1824,54 +1643,6 @@ async function discordFetch(path, init = {}, okStatuses = [200]) {
   return response.json();
 }
 
-async function editInteractionResponse(interaction, env, content) {
-  await discordFetch(`/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      content,
-      flags: 64,
-    }),
-  });
-}
-
-async function verifyDiscordSignature(request, rawBody, env) {
-  const signature = request.headers.get("X-Signature-Ed25519");
-  const timestamp = request.headers.get("X-Signature-Timestamp");
-  if (!signature || !timestamp || !env.DISCORD_PUBLIC_KEY) {
-    return false;
-  }
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    hexToBytes(env.DISCORD_PUBLIC_KEY),
-    { name: "Ed25519" },
-    false,
-    ["verify"],
-  );
-  const signed = new TextEncoder().encode(`${timestamp}${rawBody}`);
-  return crypto.subtle.verify("Ed25519", key, hexToBytes(signature), signed);
-}
-
-function interactionJson(body) {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function hexToBytes(hex) {
-  const cleanHex = String(hex ?? "").trim();
-  if (!/^[0-9a-fA-F]*$/.test(cleanHex) || cleanHex.length % 2 !== 0) {
-    throw new Error("Invalid hex value");
-  }
-  const bytes = new Uint8Array(cleanHex.length / 2);
-  for (let i = 0; i < cleanHex.length; i += 2) {
-    bytes[i / 2] = Number.parseInt(cleanHex.slice(i, i + 2), 16);
-  }
-  return bytes;
-}
-
 function botHeaders(env, reason = "") {
   const headers = {
     Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
@@ -2028,19 +1799,6 @@ function getFrontendUrlFromEnv(env) {
   return env.JAMS_FRONTEND_URL || "index.html";
 }
 
-function getVerificationUrlFromEnv(env) {
-  const frontendUrl = getFrontendUrlFromEnv(env);
-  try {
-    const url = new URL(frontendUrl);
-    url.pathname = url.pathname.replace(/[^/]*$/, "verify.html");
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return "verify.html";
-  }
-}
-
 function getSessionCookieSameSite(request, env) {
   if (!env.JAMS_FRONTEND_ORIGIN) {
     return "Lax";
@@ -2111,7 +1869,6 @@ function corsPreflight(request, env) {
 
 function requiresTrustedOrigin(request, url) {
   if (request.method !== "POST") return false;
-  if (url.pathname === "/discord/interactions") return false;
   return url.pathname === "/sgate/logout" || url.pathname.startsWith("/api/");
 }
 
@@ -2204,21 +1961,6 @@ function assertEmailEnv(env) {
   const mailMissing = ["GOOGLE_APPS_SCRIPT_MAIL_URL", "GOOGLE_APPS_SCRIPT_MAIL_SECRET"]
     .filter((key) => !env[key]);
   if (mailMissing.length) throw new Error(`Missing required env: ${mailMissing.join(", ")}`);
-}
-
-function assertDiscordInteractionEnv(env) {
-  const missing = [
-    "DISCORD_PUBLIC_KEY",
-    "DISCORD_GUILD_ID",
-    "DISCORD_BOT_TOKEN",
-    "DB",
-    "S_GATE_EMAIL_FROM",
-    "S_GATE_ALLOWED_EMAIL_DOMAINS",
-  ].filter((key) => !env[key]);
-  if (missing.length) {
-    throw new Error(`Missing required Discord interaction env/binding: ${missing.join(", ")}`);
-  }
-  assertEmailEnv(env);
 }
 
 function httpError(message, status) {
