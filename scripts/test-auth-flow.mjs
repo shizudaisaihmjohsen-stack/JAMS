@@ -263,10 +263,6 @@ try {
   assert(resultA.pathname.endsWith("/JAMS/auth.html"), "Concurrent authentication flow changed its return page");
   assert(resultA.searchParams.get("status") === "discord_error", "First flow was overwritten by the second flow");
 
-  const legacyState = await startLogin("/sgate/login?return_to=https%3A%2F%2Fshizudaisaihmjohsen-stack.github.io%2FJAMS%2F");
-  const legacyResult = await cancelLogin(legacyState);
-  assert(legacyResult.pathname.endsWith("/JAMS/auth.html"), "Legacy authentication URL could return to the management page");
-
   const managementState = await startLogin("/sgate/manage");
   const managementResult = await cancelLogin(managementState);
   assert(managementResult.pathname.endsWith("/JAMS/"), "Management login did not return to the management page");

@@ -42,9 +42,6 @@ const configText = await readOptionalFile("config.js");
 const envValues = parseEnvValues(envText);
 const missing = requiredEnvKeys.filter((key) => !envValues.get(key));
 const hasGoogleAppsScript = Boolean(envValues.get("GOOGLE_APPS_SCRIPT_MAIL_URL") && envValues.get("GOOGLE_APPS_SCRIPT_MAIL_SECRET"));
-const hasResend = Boolean(envValues.get("RESEND_API_KEY"));
-const hasSakuraRelay = Boolean(envValues.get("SAKURA_MAIL_RELAY_URL") && envValues.get("SAKURA_MAIL_RELAY_SECRET"));
-const hasCloudflareEmail = false;
 const missingNow = missing.filter((key) => !optionalUntilDeploy.has(key));
 const missingLater = ["JAMS_FRONTEND_URL", "JAMS_FRONTEND_ORIGIN"].filter((key) => !envValues.get(key));
 const hasPlaceholderD1 = wranglerText.includes("replace-with-your-d1-database-id");
@@ -64,12 +61,6 @@ if (missingNow.length) {
 
 if (hasGoogleAppsScript) {
   console.log("OK Google Apps Scriptメール中継の設定があります。");
-} else if (hasResend) {
-  console.log("OK Resend APIの設定があります。");
-} else if (hasSakuraRelay) {
-  console.log("OK さくらメール中継の設定があります。");
-} else if (hasCloudflareEmail) {
-  console.log("INFO Cloudflare Email bindingを使用する構成です。Workers Paidが必要です。");
 }
 
 if (missingLater.length) {

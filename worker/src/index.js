@@ -80,10 +80,6 @@ async function route(request, env, ctx) {
     return json({ error: "origin_not_allowed" }, 403, request, env);
   }
 
-  if (request.method === "GET" && url.pathname === "/sgate/login") {
-    return startDiscordLogin(request, env, ctx, getAuthFrontendUrl(request, env));
-  }
-
   if (request.method === "GET" && url.pathname === "/sgate/auth") {
     return startDiscordLogin(request, env, ctx, getAuthFrontendUrl(request, env));
   }
@@ -98,14 +94,6 @@ async function route(request, env, ctx) {
 
   if ((request.method === "GET" || request.method === "POST") && url.pathname === "/sgate/logout") {
     return handleLogout(request, env);
-  }
-
-  if (request.method === "GET" && url.pathname === "/api/sgate/me") {
-    return getCurrentSession(request, env);
-  }
-
-  if (request.method === "POST" && url.pathname === "/api/sgate/apply-roles") {
-    return applyVerifiedRoles(request, env);
   }
 
   if (request.method === "POST" && url.pathname === "/api/sgate/email/start") {
@@ -146,10 +134,6 @@ async function route(request, env, ctx) {
 
   if (request.method === "POST" && url.pathname === "/api/admin/members/delete") {
     return deleteMember(request, env);
-  }
-
-  if (request.method === "GET" && url.pathname === "/api/admin/members") {
-    return listMembers(request, env);
   }
 
   if (request.method === "POST" && url.pathname === "/api/admin/meetings/absentees/dm") {
@@ -582,35 +566,6 @@ function handleLogout(request, env) {
   return new Response(JSON.stringify({ ok: true }, null, 2), { status: 200, headers });
 }
 
-async function getCurrentSession(request, env) {
-  const session = await readSignedSession(request, env);
-  if (!session) {
-    return json({ authenticated: false }, 401, request, env);
-  }
-  return json({ authenticated: true, userId: session.userId, username: session.username }, 200, request, env);
-}
-
-async function applyVerifiedRoles(request, env) {
-  const session = await readSignedSession(request, env);
-  if (!session) {
-    return json({ error: "not_authenticated" }, 401, request, env);
-  }
-
-  if (!env.DB) {
-    throw new Error("Missing required DB binding");
-  }
-  const member = await findMemberByDiscordUserId(session.userId, env);
-  if (!member?.verified_at) {
-    return json({ error: "member_not_verified" }, 403, request, env);
-  }
-  if (!await isGuildMember(session.userId, env)) {
-    return json({ error: "discord_server_join_required" }, 409, request, env);
-  }
-
-  const sync = await syncVerifiedDiscordMember(session.userId, member, env, "S-GATE verified role sync");
-  return json({ ok: true, roles: sync.roleNames, warnings: sync.warnings }, 200, request, env);
-}
-
 async function storeEmailVerificationChallenge(challenge, env) {
   const challengeId = crypto.randomUUID();
   const now = Date.now();
@@ -1019,12 +974,6 @@ async function importMembers(request, env) {
   return json({ ok: true, imported: normalizedMembers.length, importedBy: session.userId }, 200, request, env);
 }
 
-async function listMembers(request, env) {
-  await requireAdminSession(request, env);
-  const members = await selectAllMembers(env);
-  return json({ ok: true, members }, 200, request, env);
-}
-
 async function deleteMember(request, env) {
   const session = await requireAdminSession(request, env);
   const body = await readJson(request);
@@ -1376,17 +1325,7 @@ async function sendVerificationEmail(email, code, env) {
     return;
   }
 
-  if (env.RESEND_API_KEY) {
-    await sendEmailViaResend(message, env);
-    return;
-  }
-
-  if (env.SAKURA_MAIL_RELAY_URL) {
-    await sendEmailViaSakuraRelay(message, env);
-    return;
-  }
-
-  await env.EMAIL.send(message);
+  throw new Error("Missing required env: GOOGLE_APPS_SCRIPT_MAIL_URL");
 }
 
 async function sendEmailViaGoogleAppsScript(message, env) {
@@ -1418,48 +1357,6 @@ async function sendEmailViaGoogleAppsScript(message, env) {
   const result = await response.json().catch(() => null);
   if (!result?.ok) {
     throw new Error(`Google Apps Script mail error: ${result?.error ?? "unknown_error"}`);
-  }
-}
-
-async function sendEmailViaResend(message, env) {
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: formatEmailAddress(message.from),
-      to: [formatEmailAddress(message.to)],
-      subject: message.subject,
-      text: message.text,
-      html: message.html,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Resend API error ${response.status}: ${detail}`);
-  }
-}
-
-async function sendEmailViaSakuraRelay(message, env) {
-  if (!env.SAKURA_MAIL_RELAY_SECRET) {
-    throw new Error("Missing required env: SAKURA_MAIL_RELAY_SECRET");
-  }
-
-  const response = await fetch(env.SAKURA_MAIL_RELAY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.SAKURA_MAIL_RELAY_SECRET}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(message),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Sakura mail relay error ${response.status}: ${detail}`);
   }
 }
 
@@ -2304,15 +2201,9 @@ function assertEmailEnv(env) {
   if (missing.length) {
     throw new Error(`Missing required email env/binding: ${missing.join(", ")}`);
   }
-  if (!env.GOOGLE_APPS_SCRIPT_MAIL_URL && !env.RESEND_API_KEY && !env.EMAIL && !env.SAKURA_MAIL_RELAY_URL) {
-    throw new Error("Missing email sender: configure GOOGLE_APPS_SCRIPT_MAIL_URL, RESEND_API_KEY, EMAIL binding, or SAKURA_MAIL_RELAY_URL");
-  }
-  if (env.GOOGLE_APPS_SCRIPT_MAIL_URL && !env.GOOGLE_APPS_SCRIPT_MAIL_SECRET) {
-    throw new Error("Missing required env: GOOGLE_APPS_SCRIPT_MAIL_SECRET");
-  }
-  if (env.SAKURA_MAIL_RELAY_URL && !env.SAKURA_MAIL_RELAY_SECRET) {
-    throw new Error("Missing required env: SAKURA_MAIL_RELAY_SECRET");
-  }
+  const mailMissing = ["GOOGLE_APPS_SCRIPT_MAIL_URL", "GOOGLE_APPS_SCRIPT_MAIL_SECRET"]
+    .filter((key) => !env[key]);
+  if (mailMissing.length) throw new Error(`Missing required env: ${mailMissing.join(", ")}`);
 }
 
 function assertDiscordInteractionEnv(env) {
