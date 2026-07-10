@@ -774,13 +774,16 @@ function profileHtml(member) {
     ? getAssignmentsFromTeam(member.team).map((assignment) => `<span class="id-assignment-text">${escapeHtml(assignment)}</span>`).join('<span class="id-separator">／</span>')
     : '<span class="id-muted">未設定</span>';
   const code = member.committeeType || "JC";
-  const committeeLabel = code === ROLE_NAMES.chairperson || code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "補佐役員";
+  const displayCode = code === ROLE_NAMES.chairperson ? "RC" : code;
+  const departmentLabel = code === ROLE_NAMES.chairperson
+    ? "浜松静大祭実行委員会 委員長"
+    : `情報宣伝部 ${code === "RC" ? "常任委員" : code === "JC" ? "非常任委員" : "補佐役員"}`;
   return `<div class="id-card-save-wrapper">
   <div class="id-card-image-area">
     <article class="id-card-profile">
       <div class="id-card-topbar">
-        <div class="id-card-code">${escapeHtml(code)}</div>
-        <div class="id-card-dept">情報宣伝部 ${escapeHtml(committeeLabel)}</div>
+        <div class="id-card-code">${escapeHtml(displayCode)}</div>
+        <div class="id-card-dept">${escapeHtml(departmentLabel)}</div>
         <div class="id-card-no">${memberNumberHtml(member.memberNo)}</div>
       </div>
       <div class="id-card-main">
