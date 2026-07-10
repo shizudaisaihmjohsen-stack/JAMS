@@ -1364,6 +1364,46 @@ function dmFailureSummary(results = []) {
   return `\n\n送信失敗の詳細:\n${details}${more}`;
 }
 
+async function sendDmInBatches({ selectedMode, selectedMembers, directDiscordUserId, meeting, message }) {
+  let offset = 0;
+  const totals = {
+    targeted: 0,
+    totalSendable: 0,
+    sent: 0,
+    failed: 0,
+    skippedNoDiscord: 0,
+    notFound: 0,
+    results: [],
+    meeting,
+  };
+
+  while (true) {
+    const response = await sgateFetch(selectedMode ? "/api/admin/members/dm" : "/api/admin/meetings/absentees/dm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(selectedMode
+        ? { memberNos: selectedMembers.map((member) => member.memberNo), discordUserIds: directDiscordUserId ? [directDiscordUserId] : [], message, offset }
+        : { meeting, message, offset }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || data.error || "DM送信に失敗しました。");
+
+    totals.targeted = data.targeted ?? totals.targeted;
+    totals.totalSendable = data.totalSendable ?? totals.totalSendable;
+    totals.skippedNoDiscord = data.skippedNoDiscord ?? totals.skippedNoDiscord;
+    totals.notFound = data.notFound ?? totals.notFound;
+    totals.meeting = data.meeting ?? totals.meeting;
+    totals.sent += Number(data.sent ?? 0);
+    totals.failed += Number(data.failed ?? 0);
+    totals.results.push(...(data.results ?? []));
+
+    const processed = Math.min(data.nextOffset ?? offset, totals.totalSendable || data.nextOffset || offset);
+    $("dmPreview").textContent = `DMを送信しています。${processed}/${totals.totalSendable || "?"}件処理済み。成功: ${totals.sent}人、失敗: ${totals.failed}人。`;
+    if (!data.hasMore) return totals;
+    offset = data.nextOffset;
+  }
+}
+
 async function sendAbsenceDm() {
   if (!sGateBaseUrl) {
     showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
@@ -1406,15 +1446,7 @@ async function sendAbsenceDm() {
   $("dmPreview").textContent = "DMを送信しています。画面を閉じずにお待ちください。";
   $("dmPreview").hidden = false;
   try {
-    const response = await sgateFetch(selectedMode ? "/api/admin/members/dm" : "/api/admin/meetings/absentees/dm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selectedMode
-        ? { memberNos: selectedMembers.map((member) => member.memberNo), discordUserIds: directDiscordUserId ? [directDiscordUserId] : [], message }
-        : { meeting, message }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || data.error || "DM送信に失敗しました。");
+    const data = await sendDmInBatches({ selectedMode, selectedMembers, directDiscordUserId, meeting, message });
     $("dmPreview").textContent = selectedMode
       ? `選択した${data.targeted}人中、${data.sent}人へDMを送信しました。Discord未連携: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。${dmFailureSummary(data.results)}`
       : `${data.meeting}のJC未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。${dmFailureSummary(data.results)}`;

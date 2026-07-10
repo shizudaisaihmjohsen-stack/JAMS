@@ -12,6 +12,7 @@ const DISCORD_MEMBERSHIP_RETRY_DELAYS_MS = [500, 1000, 2000, 3500];
 const DISCORD_ROLE_CONFIRM_RETRY_DELAYS_MS = [500, 1000, 2000];
 const DISCORD_DM_SEND_INTERVAL_MS = 750;
 const DISCORD_RATE_LIMIT_MAX_RETRIES = 3;
+const DISCORD_DM_BATCH_SIZE = 6;
 
 const roleNameToEnvKey = {
   "委員長": "DISCORD_ROLE_CHAIRPERSON",
@@ -938,6 +939,7 @@ async function sendAbsenceDirectMessages(request, env) {
   const body = await readJson(request);
   const meeting = String(body.meeting ?? "").trim();
   const message = String(body.message ?? "").trim();
+  const batch = getDmBatchWindow(body);
   const meetingColumn = meetingNameToColumn[meeting];
   if (!meetingColumn) {
     return json({ error: "invalid_meeting" }, 400, request, env);
@@ -956,21 +958,26 @@ async function sendAbsenceDirectMessages(request, env) {
   const absentMembers = result.results ?? [];
   const sendableMembers = absentMembers.filter((member) => String(member.discord_user_id ?? "").trim());
   const skippedNoDiscord = absentMembers.length - sendableMembers.length;
-  if (!sendableMembers.length) {
+  const batchMembers = sendableMembers.slice(batch.offset, batch.offset + batch.limit);
+  if (!batchMembers.length) {
     return json({
       ok: true,
       meeting,
       targeted: absentMembers.length,
+      totalSendable: sendableMembers.length,
       sent: 0,
       failed: 0,
       skippedNoDiscord,
+      offset: batch.offset,
+      nextOffset: batch.offset,
+      hasMore: false,
       results: [],
       sentBy: session.userId,
     }, 200, request, env);
   }
 
   const sendResults = [];
-  for (const member of sendableMembers) {
+  for (const member of batchMembers) {
     try {
       const sentMessage = await sendDirectMessage(
         member.discord_user_id,
@@ -1003,9 +1010,13 @@ async function sendAbsenceDirectMessages(request, env) {
     ok: failed === 0,
     meeting,
     targeted: absentMembers.length,
+    totalSendable: sendableMembers.length,
     sent,
     failed,
     skippedNoDiscord,
+    offset: batch.offset,
+    nextOffset: batch.offset + batchMembers.length,
+    hasMore: batch.offset + batchMembers.length < sendableMembers.length,
     results: sendResults,
     sentBy: session.userId,
   }, 200, request, env);
@@ -1262,6 +1273,7 @@ async function sendSelectedDirectMessages(request, env) {
   }
 
   const body = await readJson(request);
+  const batch = getDmBatchWindow(body);
   const memberNos = [...new Set(
     (Array.isArray(body.memberNos) ? body.memberNos : [])
       .map((value) => String(value ?? "").trim())
@@ -1299,9 +1311,10 @@ async function sendSelectedDirectMessages(request, env) {
   ];
   const skippedNoDiscord = selectedMembers.length - sendableMembers.length;
   const notFound = memberNos.length - selectedMembers.length;
+  const batchMembers = sendableMembers.slice(batch.offset, batch.offset + batch.limit);
   const sendResults = [];
 
-  for (const member of sendableMembers) {
+  for (const member of batchMembers) {
     try {
       const sentMessage = await sendDirectMessage(
         member.discord_user_id,
@@ -1333,13 +1346,24 @@ async function sendSelectedDirectMessages(request, env) {
   return json({
     ok: failed === 0 && notFound === 0,
     targeted: memberNos.length + directRecipients.length,
+    totalSendable: sendableMembers.length,
     sent,
     failed,
     skippedNoDiscord,
     notFound,
+    offset: batch.offset,
+    nextOffset: batch.offset + batchMembers.length,
+    hasMore: batch.offset + batchMembers.length < sendableMembers.length,
     results: sendResults,
     sentBy: session.userId,
   }, 200, request, env);
+}
+
+function getDmBatchWindow(body) {
+  const offset = Math.max(0, Math.floor(Number(body.offset ?? 0)));
+  const requestedLimit = Math.floor(Number(body.limit ?? DISCORD_DM_BATCH_SIZE));
+  const limit = Math.min(DISCORD_DM_BATCH_SIZE, Math.max(1, Number.isFinite(requestedLimit) ? requestedLimit : DISCORD_DM_BATCH_SIZE));
+  return { offset, limit };
 }
 
 function getDiscordGateway(env) {
