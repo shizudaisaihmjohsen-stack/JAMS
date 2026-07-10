@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS members (
   committee_type TEXT NOT NULL CHECK (committee_type IN ('委員長', 'RC', 'SV', 'JC')),
   name TEXT NOT NULL,
   kana TEXT,
-  line_name TEXT,
   student_id TEXT NOT NULL UNIQUE,
   email TEXT UNIQUE,
   grade TEXT,

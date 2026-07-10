@@ -736,7 +736,6 @@ async function importMembers(request, env, ctx) {
       committee_type,
       name,
       kana,
-      line_name,
       student_id,
       email,
       grade,
@@ -752,13 +751,12 @@ async function importMembers(request, env, ctx) {
       meeting_5,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(student_id) DO UPDATE SET
       member_no = excluded.member_no,
       committee_type = excluded.committee_type,
       name = excluded.name,
       kana = excluded.kana,
-      line_name = excluded.line_name,
       email = excluded.email,
       grade = excluded.grade,
       faculty = excluded.faculty,
@@ -777,7 +775,6 @@ async function importMembers(request, env, ctx) {
       committee_type = excluded.committee_type,
       name = excluded.name,
       kana = excluded.kana,
-      line_name = excluded.line_name,
       student_id = excluded.student_id,
       grade = excluded.grade,
       faculty = excluded.faculty,
@@ -796,7 +793,6 @@ async function importMembers(request, env, ctx) {
     member.committeeType,
     member.name,
     member.kana,
-    member.lineName,
     member.studentId,
     member.email,
     member.grade,
@@ -880,7 +876,6 @@ async function selectAllMembers(env) {
       committee_type,
       name,
       kana,
-      line_name,
       student_id,
       email,
       grade,
@@ -912,7 +907,6 @@ async function findMemberByDiscordUserId(discordUserId, env) {
       committee_type,
       name,
       kana,
-      line_name,
       student_id,
       email,
       grade,
@@ -1072,7 +1066,6 @@ function normalizeMemberForImport(member) {
     committeeType: normalizeCommitteeType(member.committeeType),
     name: clean(member.name),
     kana: clean(member.kana),
-    lineName: clean(member.lineName),
     studentId: clean(member.studentId).toUpperCase(),
     email: normalizeEmail(member.email) || null,
     grade: clean(member.grade),

@@ -515,7 +515,6 @@ function normalizeMember(member) {
     memberNo: normalize(member.memberNo ?? member.member_no ?? member.number),
     name: normalize(member.name),
     kana: normalize(member.kana),
-    lineName: normalize(member.lineName ?? member.line_name),
     studentId: parsedId.normalized,
     email: normalize(member.email).toLowerCase(),
     discordUserId: normalize(member.discordUserId ?? member.discord_user_id ?? member.discordId ?? member.discord_id),
@@ -616,7 +615,6 @@ function makeMembersFromDatabaseRows(rows) {
     memberNo: row.member_no,
     name: row.name,
     kana: row.kana,
-    lineName: row.line_name,
     studentId: row.student_id,
     email: row.email,
     discordUserId: row.discord_user_id,
@@ -691,7 +689,8 @@ function renderList() {
       member.memberNo,
       member.name,
       member.kana,
-      member.lineName,
+      member.sGateUserId,
+      member.discordUserId,
       member.studentId,
       member.team,
     ].join(" ").toLowerCase().includes(q));
@@ -804,7 +803,7 @@ function profileHtml(member) {
       </div>
       <div class="id-card-actions">
         <div class="id-card-footer-meta">
-          <div class="id-card-attendance-meta">LINE名：${escapeHtml(member.lineName || "-")}</div>
+          <div class="id-card-attendance-meta">Discord：${escapeHtml(member.sGateUserId || "未連携")}</div>
           <div class="id-card-attendance-meta">${escapeHtml(member.email || "-")}</div>
         </div>
         ${canEditMembers ? `<div class="id-card-action-buttons">
@@ -834,7 +833,8 @@ function searchMembers() {
     member.memberNo.toLowerCase() === key ||
     member.name.toLowerCase().includes(key) ||
     member.kana.toLowerCase().includes(key) ||
-    member.lineName.toLowerCase().includes(key) ||
+    member.sGateUserId.toLowerCase().includes(key) ||
+    member.discordUserId.toLowerCase() === key ||
     member.studentId.toLowerCase() === key
   );
   $("searchResult").innerHTML = found.length ? found.map(profileHtml).join("") : '<div class="empty">該当する部員が見つかりません。</div>';
@@ -854,7 +854,6 @@ function editMember(memberNo) {
   $("editingId").value = member.memberNo;
   $("name").value = member.name;
   $("kana").value = member.kana;
-  $("lineName").value = member.lineName;
   $("studentId").value = member.studentId;
   $("email").value = member.email;
   $("committeeType").value = member.committeeType || "JC";
@@ -1518,7 +1517,6 @@ function wireEvents() {
       memberNo: editingId,
       name: $("name").value,
       kana: $("kana").value,
-      lineName: $("lineName").value,
       studentId,
       email: $("email").value,
       committeeType: $("committeeType").value,

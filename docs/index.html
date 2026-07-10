@@ -82,7 +82,6 @@
                   <div class="register-field-grid">
                     <div><label for="name">氏名</label><input id="name" required autocomplete="name" placeholder="例：山田 太郎"></div>
                     <div><label for="kana">フリガナ</label><input id="kana" placeholder="例：ヤマダ タロウ"></div>
-                    <div><label for="lineName">LINE名</label><input id="lineName" required placeholder="例：たろう"></div>
                     <div><label for="studentId">学籍番号</label><input id="studentId" required placeholder="例：525A2001" maxlength="20"></div>
                   </div>
                   <div class="derived register-derived" id="derivedBox">
@@ -166,7 +165,7 @@
             <div class="list-control-grid">
               <div class="control-field control-field-wide">
                 <label for="listFilter">一覧内検索</label>
-                <input id="listFilter" placeholder="氏名・フリガナ・LINE名・学籍番号・配属先">
+                <input id="listFilter" placeholder="氏名・フリガナ・Discordユーザー名・学籍番号・配属先">
               </div>
               <div class="control-field">
                 <label for="assignmentFilter">課別絞り込み</label>
@@ -226,8 +225,8 @@
           <p class="section-en">Search</p>
           <h2>個人情報検索</h2>
           <div class="screen-control-panel search-control-panel">
-            <label for="searchKey">部員番号・氏名・LINE名・学籍番号のいずれかを入力してください</label>
-            <input id="searchKey" placeholder="例：J1 / 山田 / たろう / 525A2001">
+            <label for="searchKey">部員番号・氏名・Discordユーザー名・学籍番号のいずれかを入力してください</label>
+            <input id="searchKey" placeholder="例：J1 / 山田 / username / 525A2001">
             <div class="buttons"><button class="primary" id="searchBtn">検索する</button><button class="secondary" id="showAllProfiles">全員を表示</button></div>
           </div>
           <div id="searchResult" style="margin-top:16px"></div>
