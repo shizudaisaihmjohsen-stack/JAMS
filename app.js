@@ -1354,6 +1354,16 @@ function previewAbsenceDmTargets() {
   $("dmPreview").textContent = `${meeting}のJC未参加者は${absentMembers.length}人、DM送信対象は${sendableMembers.length}人です。${missingText}${names ? ` 送信対象例：${names}` : ""}`;
 }
 
+function dmFailureSummary(results = []) {
+  const failures = results.filter((entry) => !entry.ok);
+  if (!failures.length) return "";
+  const details = failures.slice(0, 10)
+    .map((entry) => `${entry.memberNo || entry.discordUserId || "不明"} ${entry.name || ""}: ${entry.error || "理由不明"}`.trim())
+    .join("\n");
+  const more = failures.length > 10 ? `\nほか${failures.length - 10}件` : "";
+  return `\n\n送信失敗の詳細:\n${details}${more}`;
+}
+
 async function sendAbsenceDm() {
   if (!sGateBaseUrl) {
     showMessage("dataMessage", "config.js に sGateBaseUrl を設定してください。", "error");
@@ -1406,8 +1416,8 @@ async function sendAbsenceDm() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || data.error || "DM送信に失敗しました。");
     $("dmPreview").textContent = selectedMode
-      ? `選択した${data.targeted}人中、${data.sent}人へDMを送信しました。Discord未連携: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`
-      : `${data.meeting}のJC未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`;
+      ? `選択した${data.targeted}人中、${data.sent}人へDMを送信しました。Discord未連携: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。${dmFailureSummary(data.results)}`
+      : `${data.meeting}のJC未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。${dmFailureSummary(data.results)}`;
   } catch (error) {
     $("dmPreview").textContent = `DM送信エラー: ${error.message}`;
   } finally {

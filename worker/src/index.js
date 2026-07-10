@@ -10,6 +10,8 @@ const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const APP_EXCHANGE_TTL_MS = 5 * 60 * 1000;
 const DISCORD_MEMBERSHIP_RETRY_DELAYS_MS = [500, 1000, 2000, 3500];
 const DISCORD_ROLE_CONFIRM_RETRY_DELAYS_MS = [500, 1000, 2000];
+const DISCORD_DM_SEND_INTERVAL_MS = 750;
+const DISCORD_RATE_LIMIT_MAX_RETRIES = 3;
 
 const roleNameToEnvKey = {
   "委員長": "DISCORD_ROLE_CHAIRPERSON",
@@ -989,9 +991,10 @@ async function sendAbsenceDirectMessages(request, env) {
         name: member.name,
         discordUserId: member.discord_user_id,
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: getDiscordSendFailureReason(error),
       });
     }
+    await delay(DISCORD_DM_SEND_INTERVAL_MS);
   }
 
   const sent = sendResults.filter((entry) => entry.ok).length;
@@ -1319,9 +1322,10 @@ async function sendSelectedDirectMessages(request, env) {
         name: member.name,
         discordUserId: member.discord_user_id,
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: getDiscordSendFailureReason(error),
       });
     }
+    await delay(DISCORD_DM_SEND_INTERVAL_MS);
   }
 
   const sent = sendResults.filter((entry) => entry.ok).length;
@@ -1669,23 +1673,44 @@ function buildAbsenceDmMessage(meeting, message) {
   ].join("\n");
 }
 
-async function discordFetch(path, init = {}, okStatuses = [200]) {
+async function discordFetch(path, init = {}, okStatuses = [200], attempt = 0) {
   const response = await fetch(`${DISCORD_API_BASE}${path}`, init);
   if (!okStatuses.includes(response.status)) {
     const detail = await response.text();
+    let parsedDetail = {};
+    try {
+      parsedDetail = JSON.parse(detail);
+    } catch {
+      parsedDetail = {};
+    }
+    if (response.status === 429 && attempt < DISCORD_RATE_LIMIT_MAX_RETRIES) {
+      const retryAfterSeconds = Number(parsedDetail.retry_after ?? response.headers.get("Retry-After") ?? 1);
+      const retryAfterMs = Math.max(250, Math.ceil(retryAfterSeconds * 1000));
+      await delay(retryAfterMs);
+      return discordFetch(path, init, okStatuses, attempt + 1);
+    }
     const error = new Error(`Discord API error ${response.status}: ${detail}`);
     error.httpStatus = response.status;
-    try {
-      error.discordCode = Number(JSON.parse(detail)?.code ?? 0);
-    } catch {
-      error.discordCode = 0;
-    }
+    error.discordCode = Number(parsedDetail?.code ?? 0);
+    error.retryAfter = Number(parsedDetail?.retry_after ?? response.headers.get("Retry-After") ?? 0);
     throw error;
   }
   if (response.status === 204) {
     return null;
   }
   return response.json();
+}
+
+function getDiscordSendFailureReason(error) {
+  const status = Number(error?.httpStatus ?? 0);
+  const code = Number(error?.discordCode ?? 0);
+  if (status === 429) return "Discordの送信制限に達しました。時間を置いて再送してください。";
+  if (code === 50007) return "相手のDM設定により送信できませんでした。";
+  if (code === 50013) return "Botの権限不足により送信できませんでした。";
+  if (code === 10013) return "Discordユーザーが見つかりませんでした。";
+  if (status === 403) return "Discord側でDM送信が拒否されました。";
+  if (status >= 500) return "Discord側の一時的なエラーです。時間を置いて再送してください。";
+  return error instanceof Error ? error.message : String(error);
 }
 
 function botHeaders(env, reason = "") {
