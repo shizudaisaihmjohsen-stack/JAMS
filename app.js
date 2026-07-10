@@ -76,6 +76,8 @@ let directAuthEmail = "";
 let loginBroadcastChannel = null;
 let loginRefreshInProgress = false;
 let loginAttemptTimer = null;
+let memoryAppSessionToken = "";
+let memoryAppSessionExpiresAt = 0;
 const selectedDmMemberNos = new Set();
 
 const TAB_INSTANCE_ID = typeof crypto.randomUUID === "function"
@@ -86,6 +88,12 @@ const $ = (id) => document.getElementById(id);
 const sGateBaseUrl = window.JAMS_CONFIG?.sGateBaseUrl;
 
 function getAppSessionToken() {
+  if (memoryAppSessionToken && memoryAppSessionExpiresAt > Date.now()) {
+    return memoryAppSessionToken;
+  }
+  memoryAppSessionToken = "";
+  memoryAppSessionExpiresAt = 0;
+
   try {
     const stored = localStorage.getItem(APP_SESSION_KEY);
     if (stored) {
@@ -100,6 +108,16 @@ function getAppSessionToken() {
   }
 
   try {
+    const stored = sessionStorage.getItem(APP_SESSION_KEY);
+    if (stored) {
+      const session = JSON.parse(stored);
+      if (session?.token && Number(session.expiresAt) > Date.now()) {
+        memoryAppSessionToken = session.token;
+        memoryAppSessionExpiresAt = Number(session.expiresAt);
+        return session.token;
+      }
+      sessionStorage.removeItem(APP_SESSION_KEY);
+    }
     const legacyToken = sessionStorage.getItem(LEGACY_APP_SESSION_KEY) || "";
     if (legacyToken) {
       setAppSessionToken(legacyToken);
@@ -112,23 +130,32 @@ function getAppSessionToken() {
 }
 
 function setAppSessionToken(token, expiresInSeconds = DEFAULT_APP_SESSION_TTL_SECONDS) {
+  const ttlSeconds = Number(expiresInSeconds);
+  const expiresAt = token
+    ? Date.now()
+      + (Number.isFinite(ttlSeconds) && ttlSeconds > 0
+        ? ttlSeconds
+        : DEFAULT_APP_SESSION_TTL_SECONDS) * 1000
+    : 0;
+  memoryAppSessionToken = token || "";
+  memoryAppSessionExpiresAt = expiresAt;
+
   try {
     if (token) {
-      const ttlSeconds = Number(expiresInSeconds);
-      const expiresAt = Date.now()
-        + (Number.isFinite(ttlSeconds) && ttlSeconds > 0
-          ? ttlSeconds
-          : DEFAULT_APP_SESSION_TTL_SECONDS) * 1000;
       localStorage.setItem(APP_SESSION_KEY, JSON.stringify({ token, expiresAt }));
     } else {
       localStorage.removeItem(APP_SESSION_KEY);
     }
   } catch {
-    // localStorageが使えない環境ではCookie方式へフォールバックします。
+    // localStorageが使えない環境ではsessionStorageとメモリで保持します。
   }
   try {
+    if (token) {
+      sessionStorage.setItem(APP_SESSION_KEY, JSON.stringify({ token, expiresAt }));
+    } else {
+      sessionStorage.removeItem(APP_SESSION_KEY);
+    }
     sessionStorage.removeItem(LEGACY_APP_SESSION_KEY);
-    sessionStorage.removeItem(APP_SESSION_KEY);
   } catch {
     // 旧形式の削除に失敗しても認証処理は続行します。
   }
