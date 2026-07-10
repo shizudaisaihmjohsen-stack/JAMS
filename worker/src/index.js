@@ -13,6 +13,7 @@ const DISCORD_ROLE_CONFIRM_RETRY_DELAYS_MS = [500, 1000, 2000];
 const DISCORD_DM_SEND_INTERVAL_MS = 750;
 const DISCORD_RATE_LIMIT_MAX_RETRIES = 3;
 const DISCORD_DM_BATCH_SIZE = 6;
+const TEAM_ROLE_NAMES = ["ポスター", "パンフレット", "Webサイト", "学内宣", "学外宣", "マスコット", "SNS"];
 
 const roleNameToEnvKey = {
   "委員長": "DISCORD_ROLE_CHAIRPERSON",
@@ -130,7 +131,7 @@ async function route(request, env, ctx) {
   }
 
   if (request.method === "POST" && url.pathname === "/api/admin/members/import") {
-    return importMembers(request, env);
+    return importMembers(request, env, ctx);
   }
 
   if (request.method === "POST" && url.pathname === "/api/admin/members/delete") {
@@ -678,7 +679,7 @@ async function getAppBootstrap(request, env) {
   }, 200, request, env);
 }
 
-async function importMembers(request, env) {
+async function importMembers(request, env, ctx) {
   const session = await requireAdminSession(request, env);
   const body = await readJson(request);
   const sourceMembers = Array.isArray(body.members) ? body.members : [];
@@ -812,7 +813,24 @@ async function importMembers(request, env) {
   ));
 
   await env.DB.batch(statements);
+  ctx.waitUntil(syncImportedVerifiedMembers(normalizedMembers, env).catch((error) => {
+    console.warn(`Failed to sync imported verified members: ${error.message}`);
+  }));
   return json({ ok: true, imported: normalizedMembers.length, importedBy: session.userId }, 200, request, env);
+}
+
+async function syncImportedVerifiedMembers(importedMembers, env) {
+  const studentIds = [...new Set(importedMembers.map((member) => member.studentId).filter(Boolean))];
+  if (!studentIds.length) return;
+  const result = await env.DB.prepare(`
+    SELECT id, member_no, committee_type, name, position, team, discord_user_id, discord_username, verified_at
+    FROM members
+    WHERE student_id IN (${studentIds.map(() => "?").join(", ")})
+  `).bind(...studentIds).all();
+  for (const member of result.results ?? []) {
+    if (!member.verified_at || !member.discord_user_id) continue;
+    await syncVerifiedDiscordMember(member.discord_user_id, member, env, "JAMS member data updated");
+  }
 }
 
 async function deleteMember(request, env) {
@@ -1517,6 +1535,9 @@ async function syncVerifiedDiscordMember(userId, member, env, reason) {
   if (!await setMemberNicknameBestEffort(userId, member.name, env, reason)) {
     warnings.push("nickname_sync_failed");
   }
+  if (!await removeStaleTeamRolesBestEffort(userId, roleNames, env, reason)) {
+    warnings.push("stale_team_role_removal_failed");
+  }
   if (!await removeRoleBestEffort(userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, reason)) {
     warnings.push("unverified_role_removal_failed");
   }
@@ -1560,6 +1581,7 @@ async function provisionVerifiedDiscordMember(userId, member, env, reason) {
     if (!await setMemberNicknameBestEffort(userId, member.name, env, reason)) {
       warnings.push("nickname_sync_failed");
     }
+    await removeStaleTeamRoles(userId, roleNames, env, reason);
     for (const role of prerequisiteRoles) {
       await addRole(userId, role.id, env, reason);
     }
@@ -1585,6 +1607,40 @@ async function provisionVerifiedDiscordMember(userId, member, env, reason) {
       detail: error.message,
     }));
     throw httpError("discord_role_sync_failed", 503);
+  }
+}
+
+async function removeStaleTeamRoles(userId, desiredRoleNames, env, reason) {
+  const desiredRoleIds = new Set(
+    desiredRoleNames
+      .map((name) => env[roleNameToEnvKey[name]])
+      .filter(Boolean)
+      .map(String),
+  );
+  const teamRoleIds = TEAM_ROLE_NAMES
+    .map((name) => env[roleNameToEnvKey[name]])
+    .filter(Boolean)
+    .map(String);
+  if (!teamRoleIds.length) return;
+  const guildMember = await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`, {
+    method: "GET",
+    headers: botHeaders(env),
+  }, [200]);
+  const assignedRoleIds = new Set((guildMember.roles ?? []).map(String));
+  for (const roleId of teamRoleIds) {
+    if (assignedRoleIds.has(roleId) && !desiredRoleIds.has(roleId)) {
+      await removeRole(userId, roleId, env, reason);
+    }
+  }
+}
+
+async function removeStaleTeamRolesBestEffort(userId, desiredRoleNames, env, reason) {
+  try {
+    await removeStaleTeamRoles(userId, desiredRoleNames, env, reason);
+    return true;
+  } catch (error) {
+    console.warn(`Skipping stale team role cleanup: ${error.message}`);
+    return false;
   }
 }
 
