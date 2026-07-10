@@ -538,11 +538,11 @@ function normalizeMember(member) {
 
 function assignMemberNumbers(sourceMembers) {
   const sorted = sourceMembers.map(normalizeMember).sort((a, b) => a.studentId.localeCompare(b.studentId, "en"));
-  const usedNumbers = new Map([
-    ["C", new Set()],
-    ["R", new Set()],
-    ["S", new Set()],
-    ["J", new Set()],
+  const counters = new Map([
+    ["C", 0],
+    ["R", 0],
+    ["S", 0],
+    ["J", 0],
   ]);
 
   const prefixFor = (member) => {
@@ -552,26 +552,10 @@ function assignMemberNumbers(sourceMembers) {
     return "J";
   };
 
-  // Keep issued numbers stable. Only missing, invalid, or duplicate numbers are allocated again.
   sorted.forEach((member) => {
     const prefix = prefixFor(member);
-    const match = String(member.memberNo || "").match(/^([CRSJ])(\d+)$/i);
-    const number = match && match[1].toUpperCase() === prefix ? Number(match[2]) : 0;
-    if (number > 0 && !usedNumbers.get(prefix).has(number)) {
-      usedNumbers.get(prefix).add(number);
-      member.memberNo = `${prefix}${number}`;
-      return;
-    }
-    member.memberNo = "";
-  });
-
-  sorted.forEach((member) => {
-    if (member.memberNo) return;
-    const prefix = prefixFor(member);
-    const used = usedNumbers.get(prefix);
-    let number = 1;
-    while (used.has(number)) number += 1;
-    used.add(number);
+    const number = (counters.get(prefix) ?? 0) + 1;
+    counters.set(prefix, number);
     member.memberNo = `${prefix}${number}`;
   });
 
