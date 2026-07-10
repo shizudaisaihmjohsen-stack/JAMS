@@ -1,0 +1,20 @@
+{
+  "name": "jams",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:setup": "node scripts/check-setup.mjs",
+    "build:secrets": "node scripts/build-secrets-file.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "test:auth": "node scripts/test-auth-flow.mjs",
+    "d1:migrate:auth-v2": "npx wrangler d1 execute jams --file=worker/migrations/0007_rebuild_auth_flow.sql --remote",
+    "d1:migrate:member-no": "npx wrangler d1 execute jams --file=worker/migrations/0008_enforce_unique_member_no.sql --remote",
+    "d1:migrate": "npx wrangler d1 execute jams --file=worker/schema.sql --remote",
+    "dev:worker": "npx wrangler dev",
+    "deploy:worker": "npx wrangler deploy --secrets-file .cloudflare-secrets.env"
+  },
+  "devDependencies": {
+    "wrangler": "^4.20.0"
+  }
+}

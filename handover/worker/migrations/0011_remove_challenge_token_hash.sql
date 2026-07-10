@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_email_verification_challenges_token_hash;
+ALTER TABLE email_verification_challenges DROP COLUMN token_hash;
