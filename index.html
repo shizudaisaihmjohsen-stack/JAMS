@@ -132,8 +132,8 @@
                     </div>
                   </div>
 
-                  <div>
-                    <label>全体会への参加状況</label>
+                  <div id="meetingAttendanceField">
+                    <label>JC 全体会への参加状況</label>
                     <div class="attendance">
                       <label class="check"><input type="checkbox" id="meet1"> 新歓</label>
                       <label class="check"><input type="checkbox" id="meet2"> 第1回</label>
@@ -194,7 +194,7 @@
             </div>
             <div class="meeting-filter-grid">
               <div class="list-filter-panel compact-filter">
-                <div class="filter-title">全体会 未参加者</div>
+                <div class="filter-title">JC 全体会 未参加者</div>
                 <div class="absence-checks" id="absenceFilters">
                   <label class="check"><input type="checkbox" name="absenceFilter" value="0"> 新歓</label>
                   <label class="check"><input type="checkbox" name="absenceFilter" value="1"> 第1回</label>
@@ -205,7 +205,7 @@
                 </div>
               </div>
               <div class="list-filter-panel compact-filter">
-                <div class="filter-title">全体会 参加者</div>
+                <div class="filter-title">JC 全体会 参加者</div>
                 <div class="presence-checks" id="presenceFilters">
                   <label class="check"><input type="checkbox" name="presenceFilter" value="0"> 新歓</label>
                   <label class="check"><input type="checkbox" name="presenceFilter" value="1"> 第1回</label>
@@ -269,16 +269,16 @@
 
           <div class="screen-control-panel management-dm-panel">
             <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
-              <label><input type="radio" name="dmTargetMode" value="absence" checked hidden>欠席者</label>
+              <label><input type="radio" name="dmTargetMode" value="absence" checked hidden>JC欠席者</label>
               <label><input type="radio" name="dmTargetMode" value="selected" hidden>個別選択</label>
             </div>
             <div class="management-dm-head">
               <div>
                 <p class="panel-kicker">Discord DM</p>
-                <h3 id="dmPanelTitle">全体会未参加者への一括連絡</h3>
+                <h3 id="dmPanelTitle">JC全体会未参加者への一括連絡</h3>
               </div>
               <div id="dmMeetingField" class="control-field">
-                <label for="dmMeetingSelect">対象の全体会</label>
+                <label for="dmMeetingSelect">対象のJC全体会</label>
                 <select id="dmMeetingSelect">
                   <option value="新歓">新歓</option>
                   <option value="第1回">第1回</option>
@@ -305,11 +305,11 @@
             </div>
             <label for="dmMessage">送信メッセージ</label>
             <textarea id="dmMessage" rows="6">情報宣伝部です。
-全体会の参加状況について確認したいことがあります。
+JC全体会の参加状況について確認したいことがあります。
 このDMを確認したら、部長または担当者まで返信してください。</textarea>
             <div class="buttons management-dm-actions">
               <button class="secondary" type="button" id="previewDmButton">対象確認</button>
-              <button class="danger" type="button" id="sendDmButton" disabled>未参加者へDM送信</button>
+              <button class="danger" type="button" id="sendDmButton" disabled>JC未参加者へDM送信</button>
             </div>
             <div id="dmPreview" class="hint" hidden></div>
           </div>

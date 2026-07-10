@@ -947,7 +947,8 @@ async function sendAbsenceDirectMessages(request, env) {
   const result = await env.DB.prepare(`
     SELECT member_no, name, discord_user_id, ${meetingColumn} AS meeting_status
     FROM members
-    WHERE COALESCE(${meetingColumn}, '') <> '出席'
+    WHERE committee_type = 'JC'
+      AND COALESCE(${meetingColumn}, '') <> '出席'
     ORDER BY student_id
   `).all();
   const absentMembers = result.results ?? [];

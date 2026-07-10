@@ -395,6 +395,14 @@ function updateDerivedPreview() {
   $("derivedDepartment").textContent = info.department;
 }
 
+function updateMeetingFieldsVisibility() {
+  const isJc = $("committeeType")?.value === "JC";
+  const meetingField = $("meetingAttendanceField");
+  if (meetingField) {
+    meetingField.hidden = !isJc;
+  }
+}
+
 function normalizeCommitteeType(value, position) {
   const normalized = normalize(value);
   if (normalized === ROLE_NAMES.chairperson) return ROLE_NAMES.chairperson;
@@ -487,6 +495,14 @@ function attendanceToMeetings(attendance = []) {
 
 function meetingsToAttendance(meetings = {}) {
   return MEETING_LABELS.map((label) => meetings[label] === "出席");
+}
+
+function isJcMember(member) {
+  return member?.committeeType === "JC" || member?.committee_type === "JC";
+}
+
+function getJcMembers() {
+  return members.filter(isJcMember);
 }
 
 function normalizeMember(member) {
@@ -708,12 +724,12 @@ function renderList() {
 
   const absenceFilters = Array.from(document.querySelectorAll('input[name="absenceFilter"]:checked')).map((input) => Number(input.value));
   if (absenceFilters.length) {
-    displayMembers = displayMembers.filter((member) => absenceFilters.every((index) => member.meetings[MEETING_LABELS[index]] !== "出席"));
+    displayMembers = displayMembers.filter((member) => isJcMember(member) && absenceFilters.every((index) => member.meetings[MEETING_LABELS[index]] !== "出席"));
   }
 
   const presenceFilters = Array.from(document.querySelectorAll('input[name="presenceFilter"]:checked')).map((input) => Number(input.value));
   if (presenceFilters.length) {
-    displayMembers = displayMembers.filter((member) => presenceFilters.every((index) => member.meetings[MEETING_LABELS[index]] === "出席"));
+    displayMembers = displayMembers.filter((member) => isJcMember(member) && presenceFilters.every((index) => member.meetings[MEETING_LABELS[index]] === "出席"));
   }
 
   const sortBy = $("sortBy")?.value || "number";
@@ -735,6 +751,7 @@ function renderList() {
 }
 
 function meetingSummary(member) {
+  if (!isJcMember(member)) return "-";
   const attended = MEETING_LABELS.filter((label) => member.meetings[label] === "出席").length;
   return `${attended}/6`;
 }
@@ -860,6 +877,7 @@ function editMember(memberNo) {
     const input = $(`meet${index + 1}`);
     if (input) input.checked = member.meetings[label] === "出席";
   });
+  updateMeetingFieldsVisibility();
   $("saveBtn").textContent = "更新する";
   updateDerivedPreview();
   showMessage("formMessage", `${member.memberNo}を編集中です。`, "ok");
@@ -884,6 +902,7 @@ function resetForm(clearMessage = true) {
   $("saveBtn").textContent = "登録する";
   if (clearMessage) showMessage("formMessage", "");
   updateDerivedPreview();
+  updateMeetingFieldsVisibility();
 }
 
 function renderAll() {
@@ -1302,15 +1321,15 @@ function updateDmTargetMode() {
   const selectedMode = getDmTargetMode() === "selected";
   if (elements.dmMemberPicker) elements.dmMemberPicker.hidden = !selectedMode;
   if ($("dmMeetingField")) $("dmMeetingField").hidden = selectedMode;
-  if ($("dmPanelTitle")) $("dmPanelTitle").textContent = selectedMode ? "選択した部員への個別連絡" : "全体会未参加者への一括連絡";
-  if (elements.sendDmButton) elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "未参加者へDM送信";
+  if ($("dmPanelTitle")) $("dmPanelTitle").textContent = selectedMode ? "選択した部員への個別連絡" : "JC全体会未参加者への一括連絡";
+  if (elements.sendDmButton) elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "JC未参加者へDM送信";
   if ($("dmPreview")) $("dmPreview").hidden = true;
   renderDmMemberPicker();
 }
 
 function getDmTargetPreview() {
   const meeting = $("dmMeetingSelect")?.value || MEETING_LABELS[0];
-  const absentMembers = members.filter((member) => member.meetings?.[meeting] !== "出席");
+  const absentMembers = getJcMembers().filter((member) => member.meetings?.[meeting] !== "出席");
   const sendableMembers = absentMembers.filter((member) => member.discordUserId);
   const missingDiscordMembers = absentMembers.filter((member) => !member.discordUserId);
   return { meeting, absentMembers, sendableMembers, missingDiscordMembers };
@@ -1332,7 +1351,7 @@ function previewAbsenceDmTargets() {
     : "";
   const names = sendableMembers.slice(0, 8).map((member) => `${member.memberNo} ${member.name}`).join("、");
   $("dmPreview").hidden = false;
-  $("dmPreview").textContent = `${meeting}の未参加者は${absentMembers.length}人、DM送信対象は${sendableMembers.length}人です。${missingText}${names ? ` 送信対象例：${names}` : ""}`;
+  $("dmPreview").textContent = `${meeting}のJC未参加者は${absentMembers.length}人、DM送信対象は${sendableMembers.length}人です。${missingText}${names ? ` 送信対象例：${names}` : ""}`;
 }
 
 async function sendAbsenceDm() {
@@ -1364,7 +1383,7 @@ async function sendAbsenceDm() {
   const confirmText = selectedMode
     ? [`指定した${selectedMembers.length + (directDiscordUserId ? 1 : 0)}人へDiscord DMを送信します。`, "", "送信後は取り消せません。実行しますか？"].join("\n")
     : [
-      `${meeting}の未参加者へDiscord DMを送信します。`,
+      `${meeting}のJC未参加者へDiscord DMを送信します。`,
       `画面上の送信対象: ${sendableMembers.length}人`,
       missingDiscordMembers.length ? `Discord ID未取得: ${missingDiscordMembers.length}人` : "",
       "",
@@ -1388,12 +1407,12 @@ async function sendAbsenceDm() {
     if (!response.ok) throw new Error(data.message || data.error || "DM送信に失敗しました。");
     $("dmPreview").textContent = selectedMode
       ? `選択した${data.targeted}人中、${data.sent}人へDMを送信しました。Discord未連携: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`
-      : `${data.meeting}の未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`;
+      : `${data.meeting}のJC未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。`;
   } catch (error) {
     $("dmPreview").textContent = `DM送信エラー: ${error.message}`;
   } finally {
     elements.sendDmButton.disabled = false;
-    elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "未参加者へDM送信";
+    elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "JC未参加者へDM送信";
     await refreshAdminStatus();
   }
 }
@@ -1437,6 +1456,7 @@ function wireEvents() {
   }));
 
   $("studentId")?.addEventListener("input", updateDerivedPreview);
+  $("committeeType")?.addEventListener("change", updateMeetingFieldsVisibility);
   $("clearBtn")?.addEventListener("click", resetForm);
   $("memberForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1476,7 +1496,9 @@ function wireEvents() {
       position: $("position").value,
       team: getTeamFromAssignments(getSelectedAssignments()),
       authStatus: editingId ? members.find((member) => member.memberNo === editingId)?.authStatus : "未認証",
-      meetings: Object.fromEntries(MEETING_LABELS.map((label, index) => [label, $(`meet${index + 1}`).checked ? "出席" : "欠席"])),
+      meetings: $("committeeType").value === "JC"
+        ? Object.fromEntries(MEETING_LABELS.map((label, index) => [label, $(`meet${index + 1}`).checked ? "出席" : "欠席"]))
+        : Object.fromEntries(MEETING_LABELS.map((label) => [label, ""])),
       updatedAt: new Date().toISOString(),
     };
 
