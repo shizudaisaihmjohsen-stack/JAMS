@@ -8,6 +8,8 @@ const RETURN_TO_COOKIE = "sgate_return_to";
 const APP_TOKEN_PARAM = "sgate_app_token";
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const APP_EXCHANGE_TTL_MS = 5 * 60 * 1000;
+const DISCORD_MEMBERSHIP_RETRY_DELAYS_MS = [500, 1000, 2000, 3500];
+const DISCORD_ROLE_CONFIRM_RETRY_DELAYS_MS = [500, 1000, 2000];
 
 const roleNameToEnvKey = {
   "委員長": "DISCORD_ROLE_CHAIRPERSON",
@@ -172,7 +174,7 @@ async function route(request, env, ctx) {
     `).bind(memberNo, studentId).first();
     if (!member) return new Response("部員情報が一致しません。", { status: 404 });
     if (!member.discord_user_id) return new Response("Discord IDが未連携です。", { status: 409 });
-    const membership = await checkGuildMembership(member.discord_user_id, env);
+    const membership = await checkGuildMembershipWithRetry(member.discord_user_id, env);
     if (!membership.apiAccessible) return new Response("Discordの在籍確認に失敗しました。", { status: 502 });
     if (!membership.isMember) return new Response("Discordサーバーに在籍していません。", { status: 409 });
     const sync = await provisionVerifiedDiscordMember(member.discord_user_id, member, env, "S-GATE admin manual verification");
@@ -283,7 +285,7 @@ async function handleDiscordCallback(request, env) {
 
   try {
     const guildJoin = await addGuildMemberBestEffort(user.id, token.access_token, env);
-    const guildMembership = await checkGuildMembership(user.id, env);
+    const guildMembership = await checkGuildMembershipWithRetry(user.id, env);
     if (!guildMembership.isMember) {
       const loginStatus = getGuildJoinFailureStatus(guildJoin, guildMembership);
       console.error(JSON.stringify({
@@ -580,7 +582,7 @@ async function completeMemberVerification(email, discordUserId, discordUsername,
     throw httpError("member_already_linked", 409);
   }
 
-  const membership = await checkGuildMembership(discordUserId, env);
+  const membership = await checkGuildMembershipWithRetry(discordUserId, env);
   if (!membership.apiAccessible) {
     throw httpError("discord_bot_access_error", 503);
   }
@@ -1456,6 +1458,18 @@ async function checkGuildMembership(userId, env) {
   }
 }
 
+async function checkGuildMembershipWithRetry(userId, env) {
+  let membership = await checkGuildMembership(userId, env);
+  for (const delayMs of DISCORD_MEMBERSHIP_RETRY_DELAYS_MS) {
+    if (membership.isMember || !membership.apiAccessible) {
+      return membership;
+    }
+    await delay(delayMs);
+    membership = await checkGuildMembership(userId, env);
+  }
+  return membership;
+}
+
 async function isGuildMember(userId, env) {
   return (await checkGuildMembership(userId, env)).isMember;
 }
@@ -1524,17 +1538,7 @@ async function provisionVerifiedDiscordMember(userId, member, env, reason) {
     verifiedRoleAdded = true;
 
     await removeRole(userId, env.DISCORD_ROLE_S_GATE_UNVERIFIED, env, reason);
-    const guildMember = await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`, {
-      method: "GET",
-      headers: botHeaders(env),
-    }, [200]);
-    const assignedRoleIds = new Set((guildMember.roles ?? []).map(String));
-    const missingAssignedRoles = roles.filter((role) => !assignedRoleIds.has(String(role.id)));
-    const stillUnverified = env.DISCORD_ROLE_S_GATE_UNVERIFIED
-      && assignedRoleIds.has(String(env.DISCORD_ROLE_S_GATE_UNVERIFIED));
-    if (missingAssignedRoles.length || stillUnverified) {
-      throw new Error("Discord role assignment could not be confirmed");
-    }
+    const guildMember = await fetchGuildMemberAfterRoleSync(userId, roles, env);
 
     return {
       roleNames,
@@ -1553,6 +1557,29 @@ async function provisionVerifiedDiscordMember(userId, member, env, reason) {
     }));
     throw httpError("discord_role_sync_failed", 503);
   }
+}
+
+async function fetchGuildMemberAfterRoleSync(userId, roles, env) {
+  let guildMember;
+  for (const delayMs of [0, ...DISCORD_ROLE_CONFIRM_RETRY_DELAYS_MS]) {
+    if (delayMs) await delay(delayMs);
+    guildMember = await discordFetch(`/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`, {
+      method: "GET",
+      headers: botHeaders(env),
+    }, [200]);
+    if (hasExpectedVerifiedRoles(guildMember, roles, env)) {
+      return guildMember;
+    }
+  }
+  throw new Error("Discord role assignment could not be confirmed");
+}
+
+function hasExpectedVerifiedRoles(guildMember, roles, env) {
+  const assignedRoleIds = new Set((guildMember.roles ?? []).map(String));
+  const missingAssignedRoles = roles.filter((role) => !assignedRoleIds.has(String(role.id)));
+  const stillUnverified = env.DISCORD_ROLE_S_GATE_UNVERIFIED
+    && assignedRoleIds.has(String(env.DISCORD_ROLE_S_GATE_UNVERIFIED));
+  return missingAssignedRoles.length === 0 && !stillUnverified;
 }
 
 async function addRole(userId, roleId, env, reason) {
@@ -1773,6 +1800,10 @@ function base64UrlDecode(value) {
   const binary = atob(padded);
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
   return new TextDecoder().decode(bytes);
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getSessionSecret(env) {
