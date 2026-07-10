@@ -13,14 +13,11 @@
 ## 含めているファイル
 
 - `HANDOVER.md`
-- `README.md`
 - `.env.example`
 - `config.example.js`
 - `google-apps-script-mailer.gs`
-- `package.json`
-- `wrangler.toml`
-- `worker/schema.sql`
-- `worker/migrations/*.sql`
+
+システム本体のソースコード、D1スキーマ、マイグレーション、`package.json`、`wrangler.toml` はGitHubリポジトリ本体を参照してください。このフォルダには、引き継ぎ時に直接見る資料と設定例だけを置いています。
 
 ## 含めていないファイル
 
@@ -39,4 +36,3 @@
 ## 注意
 
 このフォルダだけでは、本番環境の操作はできません。実際に運用・復旧するには、GitHub、Cloudflare、Discord Developer Portal、Google Apps Scriptの権限が必要です。
-
