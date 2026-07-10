@@ -1302,7 +1302,7 @@ async function sendSelectedDirectMessages(request, env) {
     try {
       const sentMessage = await sendDirectMessage(
         member.discord_user_id,
-        buildSelectedDmMessage(message),
+        buildSelectedDmMessage(message, member.name),
         env,
       );
       sendResults.push({
@@ -1762,10 +1762,13 @@ async function hmac(value, secret) {
   return base64UrlEncode(new Uint8Array(signature));
 }
 
-function buildSelectedDmMessage(message) {
+function buildSelectedDmMessage(message, recipientName = "") {
+  const heading = clean(recipientName) ? [`${clean(recipientName)} さん`, ""] : [];
   return [
-    "このメッセージは、JAMSから自動で送信しています。",
-    "こちらは送信用アカウントのため、内容のお問い合わせは部長までお願いします。",
+    ...heading,
+    "浜松静大祭実行委員会 情報宣伝部です。",
+    "このメッセージは、システムから自動で送信しています。",
+    "こちらは送信用アカウントのため、ご連絡は部長DMまでお願いします。",
     "ーーーーーー",
     "",
     message,
