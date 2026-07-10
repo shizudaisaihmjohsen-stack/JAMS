@@ -80,6 +80,10 @@ async function route(request, env, ctx) {
     return startDiscordLogin(request, env, ctx, getAuthFrontendUrl(request, env));
   }
 
+  if (request.method === "GET" && url.pathname === "/sgate/login") {
+    return redirectLegacyLoginToAuth(request);
+  }
+
   if (request.method === "GET" && url.pathname === "/sgate/manage") {
     return startDiscordLogin(request, env, ctx, getFrontendUrl(request, env));
   }
@@ -183,6 +187,19 @@ async function route(request, env, ctx) {
   }
 
   return json({ error: "not_found" }, 404, request, env);
+}
+
+function redirectLegacyLoginToAuth(request) {
+  const url = new URL(request.url);
+  url.pathname = "/sgate/auth";
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: url.toString(),
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 }
 
 async function startDiscordLogin(request, env, ctx, fixedReturnTo = "") {

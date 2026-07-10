@@ -129,6 +129,15 @@ async function startLogin(path = "/sgate/auth") {
   return state;
 }
 
+async function assertLegacyLoginRedirectsToAuth() {
+  const response = await fetch(`${workerBaseUrl}/sgate/login?return_to=https%3A%2F%2Fexample.invalid%2F`, {
+    redirect: "manual",
+  });
+  assert(response.status === 302, `legacy login returned ${response.status}`);
+  const location = new URL(response.headers.get("location"));
+  assert(location.pathname === "/sgate/auth", "Legacy login URL did not redirect to /sgate/auth");
+}
+
 async function cancelLogin(state) {
   const callbackUrl = new URL(`${workerBaseUrl}/sgate/callback`);
   callbackUrl.searchParams.set("error", "access_denied");
@@ -250,6 +259,8 @@ worker.stderr.on("data", (chunk) => { workerOutput += chunk; });
 
 try {
   await waitForWorker(worker);
+
+  await assertLegacyLoginRedirectsToAuth();
 
   const stateA = await startLogin();
   const stateB = await startLogin();
