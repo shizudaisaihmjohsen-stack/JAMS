@@ -1764,7 +1764,9 @@ async function hmac(value, secret) {
 
 function buildSelectedDmMessage(message) {
   return [
-    "【JAMS / S-GATE 個別連絡】",
+    "このメッセージは、JAMSから自動で送信しています。",
+    "こちらは送信用アカウントのため、内容のお問い合わせは部長までお願いします。",
+    "ーーーーーー",
     "",
     message,
   ].join("\n");
