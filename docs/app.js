@@ -223,8 +223,8 @@ function updateLoginLinkState() {
   if (!link || !sGateBaseUrl) return;
   const attempt = getActiveLoginAttempt();
   const inProgress = Boolean(attempt);
-  link.setAttribute("aria-disabled", String(inProgress));
-  link.textContent = inProgress ? "Discord認証を進行中" : "Discordでログイン";
+  link.setAttribute("aria-disabled", "false");
+  link.textContent = "Discordでログイン";
   link.classList.toggle("login-in-progress", inProgress);
   if (loginAttemptTimer) clearTimeout(loginAttemptTimer);
   loginAttemptTimer = attempt
@@ -233,13 +233,6 @@ function updateLoginLinkState() {
 }
 
 function beginDiscordLogin(event) {
-  const activeAttempt = getActiveLoginAttempt();
-  if (activeAttempt) {
-    event.preventDefault();
-    setLoginMessage("別の画面でDiscord認証を進めています。完了すると、この画面も自動で更新されます。");
-    updateLoginLinkState();
-    return;
-  }
   try {
     localStorage.setItem(LOGIN_ATTEMPT_KEY, JSON.stringify({
       tabId: TAB_INSTANCE_ID,
