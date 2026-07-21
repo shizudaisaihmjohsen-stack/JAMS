@@ -1755,11 +1755,7 @@ async function setMemberNicknameBestEffort(userId, name, env, reason) {
 }
 
 async function sendDirectMessage(userId, content, env) {
-  const channel = await discordFetch("/users/@me/channels", {
-    method: "POST",
-    headers: botHeaders(env),
-    body: JSON.stringify({ recipient_id: userId }),
-  }, [200]);
+  const channel = await openDirectMessageChannel(userId, env);
 
   return discordFetch(`/channels/${channel.id}/messages`, {
     method: "POST",
@@ -1769,6 +1765,66 @@ async function sendDirectMessage(userId, content, env) {
       allowed_mentions: { parse: [] },
     }),
   }, [200]);
+}
+
+async function openDirectMessageChannel(userId, env) {
+  return discordFetch("/users/@me/channels", {
+    method: "POST",
+    headers: botHeaders(env),
+    body: JSON.stringify({ recipient_id: userId }),
+  }, [200]);
+}
+
+function isStorableDirectMessage(message, env) {
+  if (Number(message?.type ?? -1) !== 0) return false;
+  if (message?.guild_id) return false;
+  const messageId = String(message?.id ?? "");
+  const channelId = String(message?.channel_id ?? "");
+  const author = message?.author ?? {};
+  const authorId = String(author.id ?? "");
+  if (!/^\d{17,20}$/.test(messageId) || !/^\d{17,20}$/.test(channelId) || !/^\d{17,20}$/.test(authorId)) return false;
+  if (author.bot || authorId === String(env.DISCORD_CLIENT_ID)) return false;
+  const content = String(message?.content ?? "").trim();
+  const attachments = Array.isArray(message?.attachments) ? message.attachments : [];
+  return Boolean(content || attachments.length);
+}
+
+async function storeDirectMessageInInbox(env, message, linkedMember = null) {
+  const author = message?.author ?? {};
+  const authorId = String(author.id ?? "");
+  const attachments = Array.isArray(message?.attachments)
+    ? message.attachments.map((attachment) => ({
+      filename: clean(attachment?.filename),
+      url: clean(attachment?.url),
+      contentType: clean(attachment?.content_type),
+    })).filter((attachment) => attachment.url)
+    : [];
+  const username = cleanDiscordUsername(author);
+  const insert = await env.DB.prepare(`
+    INSERT OR IGNORE INTO discord_dm_inbox (
+      message_id,
+      channel_id,
+      author_id,
+      author_username,
+      member_no,
+      member_name,
+      content,
+      attachments_json,
+      received_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    String(message?.id ?? ""),
+    String(message?.channel_id ?? ""),
+    authorId,
+    username,
+    linkedMember?.member_no ?? null,
+    linkedMember?.name ?? null,
+    String(message?.content ?? "").trim().slice(0, 1800),
+    attachments.length ? JSON.stringify(attachments).slice(0, 4000) : null,
+    message?.timestamp ? new Date(message.timestamp).toISOString() : new Date().toISOString(),
+  ).run();
+  return Number(insert.meta?.changes ?? 0);
 }
 
 function buildAbsenceDmMessage(meeting, message) {
@@ -2379,54 +2435,15 @@ export class DiscordGateway {
   }
 
   async handleDirectMessage(data) {
-    if (Number(data?.type ?? -1) !== 0) return;
-    if (data?.guild_id) return;
-    if (Number(data?.channel_type ?? 1) !== 1 && data?.guild_id) return;
-    const messageId = String(data?.id ?? "");
-    const channelId = String(data?.channel_id ?? "");
+    if (!isStorableDirectMessage(data, this.env)) return;
     const author = data?.author ?? {};
     const authorId = String(author.id ?? "");
-    const content = String(data?.content ?? "").trim();
-    if (!/^\d{17,20}$/.test(messageId) || !/^\d{17,20}$/.test(channelId) || !/^\d{17,20}$/.test(authorId)) return;
-    if (author.bot || authorId === String(this.env.DISCORD_CLIENT_ID)) return;
-    const attachments = Array.isArray(data?.attachments)
-      ? data.attachments.map((attachment) => ({
-        filename: clean(attachment?.filename),
-        url: clean(attachment?.url),
-        contentType: clean(attachment?.content_type),
-      })).filter((attachment) => attachment.url)
-      : [];
-    if (!content && !attachments.length) return;
     const linkedMember = await this.env.DB.prepare(`
       SELECT member_no, name
       FROM members
       WHERE discord_user_id = ?
     `).bind(authorId).first();
-    const username = cleanDiscordUsername(author);
-    await this.env.DB.prepare(`
-      INSERT OR IGNORE INTO discord_dm_inbox (
-        message_id,
-        channel_id,
-        author_id,
-        author_username,
-        member_no,
-        member_name,
-        content,
-        attachments_json,
-        received_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      messageId,
-      channelId,
-      authorId,
-      username,
-      linkedMember?.member_no ?? null,
-      linkedMember?.name ?? null,
-      content.slice(0, 1800),
-      attachments.length ? JSON.stringify(attachments).slice(0, 4000) : null,
-      data?.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString(),
-    ).run();
+    await storeDirectMessageInInbox(this.env, data, linkedMember);
     console.log(JSON.stringify({ message: "S-GATE DM received", authorId, linkedMember: Boolean(linkedMember) }));
   }
 
