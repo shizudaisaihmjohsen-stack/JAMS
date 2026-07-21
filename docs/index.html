@@ -16,7 +16,58 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+JP:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260703-5">
+    <link rel="stylesheet" href="styles.css?v=20260722-11">
+    <style>
+      body.dm-view-active {
+        overflow: hidden !important;
+      }
+
+      body.dm-view-active main.wrap {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      body.dm-view-active #view-dm {
+        height: calc(100dvh - var(--dm-header-offset, 152px)) !important;
+        min-height: 0 !important;
+      }
+
+      body.dm-view-active #view-dm .dm-card {
+        width: 100vw !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+
+      body.dm-view-active #view-dm .dm-titlebar {
+        height: 56px !important;
+        min-height: 56px !important;
+        padding: 0 26px !important;
+        align-items: center !important;
+        overflow: visible !important;
+      }
+
+      body.dm-view-active #view-dm .dm-console {
+        height: calc(100% - 56px) !important;
+        min-height: 0 !important;
+      }
+
+      body.dm-view-active #view-dm .dm-titlebar button,
+      body.dm-view-active #view-dm .dm-title-actions .dm-mode-switch {
+        margin: 0 !important;
+        align-self: center !important;
+      }
+
+      body.dm-view-active #view-dm .dm-composer.is-reply textarea {
+        height: 46px !important;
+        min-height: 46px !important;
+        resize: none !important;
+      }
+    </style>
   </head>
   <body>
     <header class="site-header">
@@ -375,7 +426,7 @@
       }
     </script>
     <script src="config.js?v=20260619"></script>
-    <script src="app.js?v=20260703-6"></script>
-    <script src="pwa.js?v=20260706-2" defer></script>
+    <script src="app.js?v=20260722-11"></script>
+    <script src="pwa.js?v=20260722-11" defer></script>
   </body>
 </html>
