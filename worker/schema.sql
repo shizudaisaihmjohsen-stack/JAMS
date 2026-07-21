@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS discord_dm_inbox (
   content TEXT NOT NULL,
   attachments_json TEXT,
   received_at TEXT NOT NULL,
+  direction TEXT NOT NULL DEFAULT 'incoming'
+    CHECK (direction IN ('incoming', 'outgoing')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -87,3 +89,5 @@ CREATE INDEX IF NOT EXISTS idx_discord_dm_inbox_received_at
   ON discord_dm_inbox(received_at);
 CREATE INDEX IF NOT EXISTS idx_discord_dm_inbox_author_id
   ON discord_dm_inbox(author_id);
+CREATE INDEX IF NOT EXISTS idx_discord_dm_inbox_direction
+  ON discord_dm_inbox(direction);

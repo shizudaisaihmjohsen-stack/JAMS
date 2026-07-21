@@ -1,4 +1,4 @@
-const CACHE_NAME = "jams-shell-20260722-2";
+const CACHE_NAME = "jams-shell-20260722-3";
 const APP_SHELL = [
   "./",
   "./index.html",

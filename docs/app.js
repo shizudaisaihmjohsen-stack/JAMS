@@ -1477,8 +1477,9 @@ function renderDmConversationList(conversations) {
   elements.dmConversationList.innerHTML = conversations.map((conversation) => {
     const latestMessage = conversation.messages[conversation.messages.length - 1] || {};
     const latestAt = latestMessage.received_at ? new Date(latestMessage.received_at).toLocaleDateString("ja-JP") : "";
+    const previewPrefix = latestMessage.direction === "outgoing" ? "送信: " : "";
     const preview = conversation.messages.length
-      ? normalize(latestMessage.content) || "添付ファイル"
+      ? `${previewPrefix}${normalize(latestMessage.content) || "添付ファイル"}`
       : "まだ受信履歴はありません";
     return `<button class="dm-conversation-item${conversation.key === selectedDmConversationKey ? " is-active" : ""}" type="button" data-dm-key="${escapeHtml(conversation.key)}">
       <span class="dm-avatar">${escapeHtml(conversation.avatar)}</span>
@@ -1512,7 +1513,7 @@ function renderDmThreadHeader(conversation) {
         <span>${escapeHtml(conversation.subtitle)}</span>
       </div>
     </div>
-    <span class="dm-thread-status">${conversation.messages.length ? `${conversation.messages.length}件の受信DM` : "受信履歴なし"}</span>`;
+    <span class="dm-thread-status">${conversation.messages.length ? `${conversation.messages.length}件のDM履歴` : "DM履歴なし"}</span>`;
 }
 
 function renderDmProfile(conversation) {
@@ -1527,6 +1528,8 @@ function renderDmProfile(conversation) {
       </div>`;
     return;
   }
+  const incomingCount = conversation.messages.filter((message) => message.direction !== "outgoing").length;
+  const outgoingCount = conversation.messages.filter((message) => message.direction === "outgoing").length;
   elements.dmConversationProfile.innerHTML = `
     <div class="dm-profile-cover"></div>
     <div class="dm-profile-body">
@@ -1538,8 +1541,8 @@ function renderDmProfile(conversation) {
         <dd>${escapeHtml([conversation.memberNo, conversation.memberName].filter(Boolean).join(" ") || "未連携")}</dd>
         <dt>Discord ID</dt>
         <dd>${escapeHtml(conversation.authorId || "-")}</dd>
-        <dt>受信数</dt>
-        <dd>${conversation.messages.length}件</dd>
+        <dt>履歴</dt>
+        <dd>受信 ${incomingCount}件 / 送信 ${outgoingCount}件</dd>
       </dl>
     </div>`;
 }
@@ -1561,10 +1564,11 @@ function renderDmInbox(messages = dmInboxMessages) {
     return;
   }
   if (!selectedConversation.messages.length) {
-    elements.dmInboxList.innerHTML = `<div class="empty">${escapeHtml(selectedConversation.title)}さんとの受信履歴はまだありません。下の送信欄から個別にDMを送れます。</div>`;
+    elements.dmInboxList.innerHTML = `<div class="empty">${escapeHtml(selectedConversation.title)}さんとのDM履歴はまだありません。下の送信欄から個別にDMを送れます。</div>`;
     return;
   }
   elements.dmInboxList.innerHTML = selectedConversation.messages.map((message) => {
+    const outgoing = message.direction === "outgoing";
     const receivedAt = message.received_at ? new Date(message.received_at).toLocaleString("ja-JP", {
       month: "numeric",
       day: "numeric",
@@ -1575,11 +1579,11 @@ function renderDmInbox(messages = dmInboxMessages) {
     const attachmentHtml = attachments.length
       ? `<div class="dm-inbox-attachments">${attachments.map((attachment) => `<a href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(attachment.filename || "添付ファイル")}</a>`).join("")}</div>`
       : "";
-    return `<article class="dm-inbox-item">
-      <span class="dm-avatar">${escapeHtml(selectedConversation.avatar)}</span>
+    return `<article class="dm-inbox-item${outgoing ? " is-outgoing" : ""}">
+      <span class="dm-avatar">${outgoing ? "し" : escapeHtml(selectedConversation.avatar)}</span>
       <div class="dm-message-main">
         <div class="dm-inbox-meta">
-          <strong>${escapeHtml(message.author_username || selectedConversation.title)}</strong>
+          <strong>${outgoing ? "しぃは" : escapeHtml(message.author_username || selectedConversation.title)}</strong>
           <span>${escapeHtml(receivedAt)}</span>
         </div>
         <div class="dm-inbox-content">${escapeHtml(message.content)}</div>
@@ -1741,6 +1745,7 @@ async function sendAbsenceDm() {
     $("dmPreview").textContent = selectedMode
       ? `選択した${data.targeted}人中、${data.sent}人へDMを送信しました。Discord未連携: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。${dmFailureSummary(data.results)}`
       : `${data.meeting}のJC未参加者${data.targeted}人中、${data.sent}人へDMを送信しました。Discord ID未取得: ${data.skippedNoDiscord}人、送信失敗: ${data.failed}人。${dmFailureSummary(data.results)}`;
+    await loadDmInbox();
   } catch (error) {
     $("dmPreview").textContent = `DM送信エラー: ${error.message}`;
   } finally {

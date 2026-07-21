@@ -165,6 +165,11 @@ async function route(request, env, ctx) {
       return new Response("入力内容が正しくありません。", { status: 400 });
     }
     const sentMessage = await sendDirectMessage(discordUserId, buildSelectedDmMessage(message), env);
+    await storeOutgoingDirectMessageInInbox(env, sentMessage, {
+      discord_user_id: discordUserId,
+      name: "",
+      member_no: "",
+    });
     return new Response(`DMを送信しました。Message ID: ${sentMessage?.id ?? ""}`, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 
@@ -1001,6 +1006,7 @@ async function sendAbsenceDirectMessages(request, env) {
         buildAbsenceDmMessage(meeting, message),
         env,
       );
+      await storeOutgoingDirectMessageInInbox(env, sentMessage, member);
       sendResults.push({
         memberNo: member.member_no,
         name: member.name,
@@ -1337,6 +1343,7 @@ async function sendSelectedDirectMessages(request, env) {
         buildSelectedDmMessage(message, member.name),
         env,
       );
+      await storeOutgoingDirectMessageInInbox(env, sentMessage, member);
       sendResults.push({
         memberNo: member.member_no,
         name: member.name,
@@ -1390,7 +1397,8 @@ async function getDmInbox(request, env) {
       member_name,
       content,
       attachments_json,
-      received_at
+      received_at,
+      direction
     FROM discord_dm_inbox
     ORDER BY received_at DESC
     LIMIT ?
@@ -1767,6 +1775,21 @@ async function sendDirectMessage(userId, content, env) {
   }, [200]);
 }
 
+async function storeOutgoingDirectMessageInInbox(env, message, member = {}) {
+  if (!message?.id || !message?.channel_id) return 0;
+  return storeDirectMessageInInbox(env, {
+    ...message,
+    author: {
+      id: member.discord_user_id,
+      username: member.discord_username || member.name || "",
+      global_name: member.name || "",
+    },
+  }, {
+    member_no: member.member_no ?? null,
+    name: member.name ?? null,
+  }, "outgoing");
+}
+
 async function openDirectMessageChannel(userId, env) {
   return discordFetch("/users/@me/channels", {
     method: "POST",
@@ -1789,7 +1812,7 @@ function isStorableDirectMessage(message, env) {
   return Boolean(content || attachments.length);
 }
 
-async function storeDirectMessageInInbox(env, message, linkedMember = null) {
+async function storeDirectMessageInInbox(env, message, linkedMember = null, direction = "incoming") {
   const author = message?.author ?? {};
   const authorId = String(author.id ?? "");
   const attachments = Array.isArray(message?.attachments)
@@ -1810,9 +1833,10 @@ async function storeDirectMessageInInbox(env, message, linkedMember = null) {
       member_name,
       content,
       attachments_json,
-      received_at
+      received_at,
+      direction
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     String(message?.id ?? ""),
     String(message?.channel_id ?? ""),
@@ -1823,6 +1847,7 @@ async function storeDirectMessageInInbox(env, message, linkedMember = null) {
     String(message?.content ?? "").trim().slice(0, 1800),
     attachments.length ? JSON.stringify(attachments).slice(0, 4000) : null,
     message?.timestamp ? new Date(message.timestamp).toISOString() : new Date().toISOString(),
+    direction === "outgoing" ? "outgoing" : "incoming",
   ).run();
   return Number(insert.meta?.changes ?? 0);
 }

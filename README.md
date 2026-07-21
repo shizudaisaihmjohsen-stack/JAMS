@@ -80,7 +80,7 @@ https://shizudaisaihmjohsen-stack.github.io/JAMS/
 
 認証専用画面は `auth.html`、管理画面は `index.html` に分離されています。認証リンクから管理画面へ遷移することはありません。
 
-管理者向けの保守機能として、Discord IDを直接指定するDM送信、しぃはBot宛DMの受信箱、特例の手動認証、Discord Gatewayの状態確認・再接続APIを残しています。いずれも管理者セッションが必要です。
+管理者向けの保守機能として、Discord IDを直接指定するDM送信、しぃはBot宛DMの送受信履歴、特例の手動認証、Discord Gatewayの状態確認・再接続APIを残しています。いずれも管理者セッションが必要です。
 
 ## Discordロール判定
 

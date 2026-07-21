@@ -6462,6 +6462,31 @@
       background: transparent;
     }
 
+    #view-dm .dm-inbox-item.is-outgoing {
+      grid-template-columns: minmax(0, 1fr) 38px;
+    }
+
+    #view-dm .dm-inbox-item.is-outgoing .dm-avatar {
+      grid-column: 2;
+      grid-row: 1;
+      background: linear-gradient(135deg, #f26b86, #f2b7c8);
+    }
+
+    #view-dm .dm-inbox-item.is-outgoing .dm-message-main {
+      grid-column: 1;
+      grid-row: 1;
+      justify-self: end;
+      width: min(100%, 620px);
+      padding: 10px 12px;
+      border: 1px solid rgba(242, 107, 134, .24);
+      border-radius: 7px;
+      background: #fff7fa;
+    }
+
+    #view-dm .dm-inbox-item.is-outgoing .dm-inbox-meta {
+      justify-content: flex-end;
+    }
+
     #view-dm .dm-message-main {
       min-width: 0;
       padding-bottom: 8px;
