@@ -235,68 +235,78 @@
       </section>
 
       <section id="view-dm" class="view hidden">
-        <div class="card">
-          <p class="section-en">Discord DM</p>
-          <h2>DM</h2>
-          <div class="screen-control-panel management-dm-panel">
-            <div class="management-dm-head">
-              <div>
-                <p class="panel-kicker">Inbox</p>
-                <h3>しぃは宛DM受信箱</h3>
-              </div>
-              <div class="buttons">
-                <button class="secondary" type="button" id="refreshDmInboxButton">受信箱を更新</button>
-              </div>
+        <div class="card dm-card">
+          <div class="dm-titlebar">
+            <div>
+              <p class="section-en">Discord DM</p>
+              <h2>DM</h2>
             </div>
-            <div id="dmInboxMessage" class="hint" hidden></div>
-            <div id="dmInboxList" class="dm-inbox-list"></div>
+            <button class="secondary" type="button" id="refreshDmInboxButton">受信箱を更新</button>
           </div>
+          <div id="dmInboxMessage" class="hint" hidden></div>
 
-          <div class="screen-control-panel management-dm-panel">
-            <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
-              <label><input type="radio" name="dmTargetMode" value="absence" checked hidden>JC欠席者</label>
-              <label><input type="radio" name="dmTargetMode" value="selected" hidden>個別選択</label>
-            </div>
-            <div class="management-dm-head">
-              <div>
-                <p class="panel-kicker">Send</p>
-                <h3 id="dmPanelTitle">JC全体会未参加者への一括連絡</h3>
+          <div class="dm-console">
+            <aside class="dm-sidebar" aria-label="DM会話一覧">
+              <div class="dm-sidebar-head">
+                <p class="panel-kicker">Messages</p>
+                <h3>しぃは宛DM</h3>
               </div>
-              <div id="dmMeetingField" class="control-field">
-                <label for="dmMeetingSelect">対象のJC全体会</label>
-                <select id="dmMeetingSelect">
-                  <option value="新歓">新歓</option>
-                  <option value="第1回">第1回</option>
-                  <option value="第2回">第2回</option>
-                  <option value="第3回">第3回</option>
-                  <option value="第4回">第4回</option>
-                  <option value="第5回">第5回</option>
-                </select>
-              </div>
-            </div>
-            <div id="dmMemberPicker" class="dm-member-picker" hidden>
-              <div class="dm-member-picker-toolbar">
-                <label for="dmMemberSearch">送信する部員を選択</label>
-                <input id="dmMemberSearch" type="search" placeholder="部員No.・氏名・学籍番号で検索">
-                <label for="dmDirectDiscordUserId">部員No.不明の場合</label>
-                <input id="dmDirectDiscordUserId" inputmode="numeric" autocomplete="off" placeholder="DiscordユーザーID（17〜20桁）">
-                <div class="buttons">
-                  <button class="secondary" type="button" id="selectVisibleDmMembersButton">表示中を選択</button>
-                  <button class="secondary" type="button" id="clearDmMembersButton">選択解除</button>
+              <div id="dmConversationList" class="dm-conversation-list"></div>
+            </aside>
+
+            <section class="dm-thread" aria-label="選択中のDM">
+              <header id="dmThreadHeader" class="dm-thread-header"></header>
+              <div id="dmInboxList" class="dm-inbox-list"></div>
+
+              <div class="dm-composer">
+                <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
+                  <label><input type="radio" name="dmTargetMode" value="absence" checked hidden>JC欠席者</label>
+                  <label><input type="radio" name="dmTargetMode" value="selected" hidden>個別選択</label>
                 </div>
-              </div>
-              <p id="dmSelectedCount" class="dm-selected-count">0人選択中</p>
-              <div id="dmMemberOptions" class="dm-member-options"></div>
-            </div>
-            <label for="dmMessage">送信メッセージ</label>
-            <textarea id="dmMessage" rows="6">情報宣伝部です。
+                <div class="management-dm-head">
+                  <div>
+                    <p class="panel-kicker">Send</p>
+                    <h3 id="dmPanelTitle">JC全体会未参加者への一括連絡</h3>
+                  </div>
+                  <div id="dmMeetingField" class="control-field">
+                    <label for="dmMeetingSelect">対象のJC全体会</label>
+                    <select id="dmMeetingSelect">
+                      <option value="新歓">新歓</option>
+                      <option value="第1回">第1回</option>
+                      <option value="第2回">第2回</option>
+                      <option value="第3回">第3回</option>
+                      <option value="第4回">第4回</option>
+                      <option value="第5回">第5回</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="dmMemberPicker" class="dm-member-picker" hidden>
+                  <div class="dm-member-picker-toolbar">
+                    <label for="dmMemberSearch">送信する部員を選択</label>
+                    <input id="dmMemberSearch" type="search" placeholder="部員No.・氏名・学籍番号で検索">
+                    <label for="dmDirectDiscordUserId">部員No.不明の場合</label>
+                    <input id="dmDirectDiscordUserId" inputmode="numeric" autocomplete="off" placeholder="DiscordユーザーID（17〜20桁）">
+                    <div class="buttons">
+                      <button class="secondary" type="button" id="selectVisibleDmMembersButton">表示中を選択</button>
+                      <button class="secondary" type="button" id="clearDmMembersButton">選択解除</button>
+                    </div>
+                  </div>
+                  <p id="dmSelectedCount" class="dm-selected-count">0人選択中</p>
+                  <div id="dmMemberOptions" class="dm-member-options"></div>
+                </div>
+                <label for="dmMessage">送信メッセージ</label>
+                <textarea id="dmMessage" rows="5">情報宣伝部です。
 JC全体会の参加状況について確認したいことがあります。
 このDMを確認したら、部長または担当者まで返信してください。</textarea>
-            <div class="buttons management-dm-actions">
-              <button class="secondary" type="button" id="previewDmButton">対象確認</button>
-              <button class="danger" type="button" id="sendDmButton" disabled>JC未参加者へDM送信</button>
-            </div>
-            <div id="dmPreview" class="hint" hidden></div>
+                <div class="buttons management-dm-actions">
+                  <button class="secondary" type="button" id="previewDmButton">対象確認</button>
+                  <button class="danger" type="button" id="sendDmButton" disabled>JC未参加者へDM送信</button>
+                </div>
+                <div id="dmPreview" class="hint" hidden></div>
+              </div>
+            </section>
+
+            <aside id="dmConversationProfile" class="dm-profile-panel" aria-label="DM相手情報"></aside>
           </div>
         </div>
       </section>

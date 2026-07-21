@@ -79,6 +79,8 @@ let loginAttemptTimer = null;
 let memoryAppSessionToken = "";
 let memoryAppSessionExpiresAt = 0;
 const selectedDmMemberNos = new Set();
+let dmInboxMessages = [];
+let selectedDmConversationKey = "";
 
 const TAB_INSTANCE_ID = typeof crypto.randomUUID === "function"
   ? crypto.randomUUID()
@@ -355,6 +357,9 @@ const elements = {
   dmSelectedCount: $("dmSelectedCount"),
   dmInboxList: $("dmInboxList"),
   dmInboxMessage: $("dmInboxMessage"),
+  dmConversationList: $("dmConversationList"),
+  dmThreadHeader: $("dmThreadHeader"),
+  dmConversationProfile: $("dmConversationProfile"),
   refreshDmInboxButton: $("refreshDmInboxButton"),
   selectVisibleDmMembersButton: $("selectVisibleDmMembersButton"),
   clearDmMembersButton: $("clearDmMembersButton"),
@@ -1374,30 +1379,192 @@ function dmFailureSummary(results = []) {
   return `\n\n送信失敗の詳細:\n${details}${more}`;
 }
 
-function renderDmInbox(messages = []) {
+function getDmConversationKey(message) {
+  return normalize(message.author_id) || normalize(message.member_no) || "unknown";
+}
+
+function getDmConversationTitle(message) {
+  return [message.member_no, message.member_name].filter(Boolean).join(" ") || message.author_username || "Discordユーザー";
+}
+
+function getDmConversationSubtitle(message) {
+  return message.author_username || message.author_id || "部員未連携";
+}
+
+function getDmConversationAvatar(message) {
+  const memberNo = normalize(message.member_no);
+  if (memberNo) return memberNo.slice(0, 2).toUpperCase();
+  const username = normalize(message.author_username);
+  return username ? username.slice(0, 2).toUpperCase() : "DM";
+}
+
+function groupDmConversations(messages = []) {
+  const conversations = new Map();
+  for (const message of messages) {
+    const key = getDmConversationKey(message);
+    if (!conversations.has(key)) {
+      conversations.set(key, {
+        key,
+        authorId: message.author_id || "",
+        title: getDmConversationTitle(message),
+        subtitle: getDmConversationSubtitle(message),
+        avatar: getDmConversationAvatar(message),
+        memberNo: message.member_no || "",
+        memberName: message.member_name || "",
+        authorUsername: message.author_username || "",
+        latestAt: message.received_at || "",
+        messages: [],
+      });
+    }
+    const conversation = conversations.get(key);
+    conversation.messages.push(message);
+    if (!conversation.latestAt || new Date(message.received_at) > new Date(conversation.latestAt)) {
+      conversation.latestAt = message.received_at || conversation.latestAt;
+      conversation.title = getDmConversationTitle(message);
+      conversation.subtitle = getDmConversationSubtitle(message);
+    }
+  }
+  return [...conversations.values()]
+    .map((conversation) => ({
+      ...conversation,
+      messages: [...conversation.messages].sort((a, b) => new Date(a.received_at || 0) - new Date(b.received_at || 0)),
+    }))
+    .sort((a, b) => new Date(b.latestAt || 0) - new Date(a.latestAt || 0));
+}
+
+function renderDmConversationList(conversations) {
+  if (!elements.dmConversationList) return;
+  if (!conversations.length) {
+    elements.dmConversationList.innerHTML = '<div class="empty">受信したDMはまだありません。</div>';
+    return;
+  }
+  elements.dmConversationList.innerHTML = conversations.map((conversation) => {
+    const latestMessage = conversation.messages[conversation.messages.length - 1] || {};
+    const latestAt = latestMessage.received_at ? new Date(latestMessage.received_at).toLocaleDateString("ja-JP") : "";
+    const preview = normalize(latestMessage.content) || "添付ファイル";
+    return `<button class="dm-conversation-item${conversation.key === selectedDmConversationKey ? " is-active" : ""}" type="button" data-dm-key="${escapeHtml(conversation.key)}">
+      <span class="dm-avatar">${escapeHtml(conversation.avatar)}</span>
+      <span class="dm-conversation-main">
+        <span class="dm-conversation-name">${escapeHtml(conversation.title)}</span>
+        <span class="dm-conversation-preview">${escapeHtml(preview)}</span>
+      </span>
+      <span class="dm-conversation-date">${escapeHtml(latestAt)}</span>
+    </button>`;
+  }).join("");
+}
+
+function renderDmThreadHeader(conversation) {
+  if (!elements.dmThreadHeader) return;
+  if (!conversation) {
+    elements.dmThreadHeader.innerHTML = `
+      <div class="dm-thread-title">
+        <span class="dm-avatar">DM</span>
+        <div>
+          <strong>会話を選択</strong>
+          <span>左の一覧からDMを選択してください。</span>
+        </div>
+      </div>`;
+    return;
+  }
+  elements.dmThreadHeader.innerHTML = `
+    <div class="dm-thread-title">
+      <span class="dm-avatar">${escapeHtml(conversation.avatar)}</span>
+      <div>
+        <strong>${escapeHtml(conversation.title)}</strong>
+        <span>${escapeHtml(conversation.subtitle)}</span>
+      </div>
+    </div>
+    <button class="secondary dm-thread-target-button" type="button" data-dm-target="${escapeHtml(conversation.key)}">この相手に送信</button>`;
+}
+
+function renderDmProfile(conversation) {
+  if (!elements.dmConversationProfile) return;
+  if (!conversation) {
+    elements.dmConversationProfile.innerHTML = `
+      <div class="dm-profile-cover"></div>
+      <div class="dm-profile-body">
+        <span class="dm-profile-avatar">DM</span>
+        <h3>しぃは</h3>
+        <p>DMを選択すると、相手の情報を表示します。</p>
+      </div>`;
+    return;
+  }
+  elements.dmConversationProfile.innerHTML = `
+    <div class="dm-profile-cover"></div>
+    <div class="dm-profile-body">
+      <span class="dm-profile-avatar">${escapeHtml(conversation.avatar)}</span>
+      <h3>${escapeHtml(conversation.title)}</h3>
+      <p>${escapeHtml(conversation.subtitle)}</p>
+      <dl>
+        <dt>部員</dt>
+        <dd>${escapeHtml([conversation.memberNo, conversation.memberName].filter(Boolean).join(" ") || "未連携")}</dd>
+        <dt>Discord ID</dt>
+        <dd>${escapeHtml(conversation.authorId || "-")}</dd>
+        <dt>受信数</dt>
+        <dd>${conversation.messages.length}件</dd>
+      </dl>
+    </div>`;
+}
+
+function renderDmInbox(messages = dmInboxMessages) {
+  dmInboxMessages = Array.isArray(messages) ? messages : [];
+  const conversations = groupDmConversations(dmInboxMessages);
+  if (!selectedDmConversationKey || !conversations.some((conversation) => conversation.key === selectedDmConversationKey)) {
+    selectedDmConversationKey = conversations[0]?.key || "";
+  }
+  const selectedConversation = conversations.find((conversation) => conversation.key === selectedDmConversationKey);
+  renderDmConversationList(conversations);
+  renderDmThreadHeader(selectedConversation);
+  renderDmProfile(selectedConversation);
   if (!elements.dmInboxList) return;
-  if (!messages.length) {
+  if (!selectedConversation) {
     elements.dmInboxList.innerHTML = '<div class="empty">受信したDMはまだありません。</div>';
     return;
   }
-  elements.dmInboxList.innerHTML = messages.map((message) => {
-    const linkedName = [message.member_no, message.member_name].filter(Boolean).join(" ");
-    const receivedAt = message.received_at ? new Date(message.received_at).toLocaleString("ja-JP") : "-";
+  elements.dmInboxList.innerHTML = selectedConversation.messages.map((message) => {
+    const receivedAt = message.received_at ? new Date(message.received_at).toLocaleString("ja-JP", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }) : "-";
     const attachments = parseDmAttachments(message.attachments_json);
     const attachmentHtml = attachments.length
       ? `<div class="dm-inbox-attachments">${attachments.map((attachment) => `<a href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(attachment.filename || "添付ファイル")}</a>`).join("")}</div>`
       : "";
     return `<article class="dm-inbox-item">
-      <div class="dm-inbox-meta">
-        <strong>${escapeHtml(message.author_username || "Discordユーザー")}</strong>
-        <span>${escapeHtml(linkedName || "部員未連携")}</span>
-        <span>${escapeHtml(receivedAt)}</span>
+      <span class="dm-avatar">${escapeHtml(selectedConversation.avatar)}</span>
+      <div class="dm-message-main">
+        <div class="dm-inbox-meta">
+          <strong>${escapeHtml(message.author_username || selectedConversation.title)}</strong>
+          <span>${escapeHtml(receivedAt)}</span>
+        </div>
+        <div class="dm-inbox-content">${escapeHtml(message.content)}</div>
+        ${attachmentHtml}
       </div>
-      <div class="dm-inbox-content">${escapeHtml(message.content)}</div>
-      ${attachmentHtml}
-      <div class="dm-inbox-id">Discord ID: ${escapeHtml(message.author_id || "-")}</div>
     </article>`;
   }).join("");
+}
+
+function selectDmConversation(key) {
+  selectedDmConversationKey = key;
+  renderDmInbox(dmInboxMessages);
+}
+
+function setDmTargetFromConversation(key) {
+  const conversation = groupDmConversations(dmInboxMessages).find((entry) => entry.key === key);
+  if (!conversation) return;
+  const selectedModeInput = document.querySelector('input[name="dmTargetMode"][value="selected"]');
+  if (selectedModeInput) selectedModeInput.checked = true;
+  selectedDmMemberNos.clear();
+  const member = conversation.memberNo
+    ? members.find((entry) => entry.memberNo === conversation.memberNo)
+    : members.find((entry) => entry.discordUserId === conversation.authorId);
+  if (member?.memberNo) selectedDmMemberNos.add(member.memberNo);
+  const directDiscordInput = $("dmDirectDiscordUserId");
+  if (directDiscordInput) directDiscordInput.value = member?.memberNo ? "" : conversation.authorId;
+  updateDmTargetMode();
+  $("dmMessage")?.focus();
 }
 
 function parseDmAttachments(value) {
@@ -1640,6 +1807,16 @@ function wireEvents() {
   elements.previewDmButton?.addEventListener("click", previewAbsenceDmTargets);
   elements.sendDmButton?.addEventListener("click", sendAbsenceDm);
   elements.refreshDmInboxButton?.addEventListener("click", loadDmInbox);
+  elements.dmConversationList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-dm-key]");
+    if (!button) return;
+    selectDmConversation(button.dataset.dmKey || "");
+  });
+  elements.dmThreadHeader?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-dm-target]");
+    if (!button) return;
+    setDmTargetFromConversation(button.dataset.dmTarget || "");
+  });
   elements.logoutButton?.addEventListener("click", logout);
   elements.directAuthForm?.addEventListener("submit", startDirectAuth);
   elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);
