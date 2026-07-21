@@ -1006,16 +1006,27 @@ async function logout() {
 
 function switchView(view) {
   const targetView = isViewAllowed(view) ? view : getDefaultViewForAccess();
+  const headerHeight = updateDmViewportMetrics();
   document.querySelectorAll(".view").forEach((target) => target.classList.add("hidden"));
   $(`view-${targetView}`)?.classList.remove("hidden");
+  document.body.classList.toggle("dm-view-active", targetView === "dm");
   document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === targetView));
   if (targetView === "list") renderList();
   if (targetView === "search") renderAllProfiles();
   if (targetView === "dm") void loadDmInbox();
   if (targetView === "settings") renderManagementTable();
-  const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
+  if (targetView === "dm") {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    return;
+  }
   const mainTop = document.querySelector("main.wrap")?.offsetTop || 0;
   window.scrollTo({ top: Math.max(0, mainTop - headerHeight - 8), behavior: "auto" });
+}
+
+function updateDmViewportMetrics() {
+  const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
+  document.documentElement.style.setProperty("--dm-header-offset", `${Math.ceil(headerHeight)}px`);
+  return headerHeight;
 }
 
 async function persistMemberToDatabase(member) {
@@ -1916,6 +1927,7 @@ function wireEvents() {
     selectedDmMemberNos.clear();
     renderDmMemberPicker();
   });
+  window.addEventListener("resize", updateDmViewportMetrics);
 }
 
 window.showProfileByNumber = showProfileByNumber;

@@ -6247,18 +6247,20 @@
       word-break: break-all;
     }
 
+    body.dm-view-active main.wrap,
     main.wrap:has(#view-dm:not(.hidden)) {
       width: 100% !important;
       padding: 0 !important;
       margin: 0 !important;
     }
 
+    body.dm-view-active,
     body:has(#view-dm:not(.hidden)) {
       overflow: hidden;
     }
 
     #view-dm {
-      height: calc(100dvh - 152px);
+      height: calc(100dvh - var(--dm-header-offset, 152px));
       min-height: 0;
     }
 
@@ -6291,6 +6293,7 @@
       overflow: visible;
       border-bottom: 1px solid #d6d9de;
       background: #fff;
+      transform: translateZ(0);
     }
 
     #view-dm .dm-titlebar h2,
