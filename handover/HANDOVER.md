@@ -135,6 +135,8 @@ https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/auth
 
 一括DMは内部的に分割送信されます。Cloudflare Workersのサブリクエスト上限に当たらないよう、複数回のAPI呼び出しに分けて送信します。
 
+JAMS管理画面の「DM」メニューでは、しぃはBot宛に届いたDM受信箱も確認できます。受信箱の取得APIは管理者セッションがある場合だけ利用できます。
+
 送信に失敗した場合は、画面に失敗者と理由が表示されます。
 
 よくある失敗理由:
@@ -153,6 +155,7 @@ Botが正常に動くには、次の設定が必要です。
 - Botに「ロールの管理」権限がある
 - BotにDM送信ができる状態である
 - Discord Developer PortalでServer Members IntentがON
+- Bot宛DMを受信箱に保存するため、Direct Messages Intentが利用できる状態である
 
 Botのロール位置が低いと、認証済みロールやJC/SV/RCロールを付与できません。
 

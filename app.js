@@ -353,6 +353,9 @@ const elements = {
   dmMemberSearch: $("dmMemberSearch"),
   dmMemberOptions: $("dmMemberOptions"),
   dmSelectedCount: $("dmSelectedCount"),
+  dmInboxList: $("dmInboxList"),
+  dmInboxMessage: $("dmInboxMessage"),
+  refreshDmInboxButton: $("refreshDmInboxButton"),
   selectVisibleDmMembersButton: $("selectVisibleDmMembersButton"),
   clearDmMembersButton: $("clearDmMembersButton"),
   adminStatusText: $("adminStatusText"),
@@ -927,7 +930,7 @@ function getDefaultViewForAccess() {
 
 function isViewAllowed(view) {
   if (view === "login") return appAccess === "guest" || appAccess === "none";
-  if (appAccess === "admin") return ["register", "list", "search", "settings"].includes(view);
+  if (appAccess === "admin") return ["register", "list", "search", "dm", "settings"].includes(view);
   if (appAccess === "staff") return ["list", "search"].includes(view);
   if (appAccess === "self") return view === "search";
   return false;
@@ -1001,6 +1004,7 @@ function switchView(view) {
   document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.view === targetView));
   if (targetView === "list") renderList();
   if (targetView === "search") renderAllProfiles();
+  if (targetView === "dm") void loadDmInbox();
   if (targetView === "settings") renderManagementTable();
   const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
   const mainTop = document.querySelector("main.wrap")?.offsetTop || 0;
@@ -1370,6 +1374,64 @@ function dmFailureSummary(results = []) {
   return `\n\n送信失敗の詳細:\n${details}${more}`;
 }
 
+function renderDmInbox(messages = []) {
+  if (!elements.dmInboxList) return;
+  if (!messages.length) {
+    elements.dmInboxList.innerHTML = '<div class="empty">受信したDMはまだありません。</div>';
+    return;
+  }
+  elements.dmInboxList.innerHTML = messages.map((message) => {
+    const linkedName = [message.member_no, message.member_name].filter(Boolean).join(" ");
+    const receivedAt = message.received_at ? new Date(message.received_at).toLocaleString("ja-JP") : "-";
+    const attachments = parseDmAttachments(message.attachments_json);
+    const attachmentHtml = attachments.length
+      ? `<div class="dm-inbox-attachments">${attachments.map((attachment) => `<a href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(attachment.filename || "添付ファイル")}</a>`).join("")}</div>`
+      : "";
+    return `<article class="dm-inbox-item">
+      <div class="dm-inbox-meta">
+        <strong>${escapeHtml(message.author_username || "Discordユーザー")}</strong>
+        <span>${escapeHtml(linkedName || "部員未連携")}</span>
+        <span>${escapeHtml(receivedAt)}</span>
+      </div>
+      <div class="dm-inbox-content">${escapeHtml(message.content)}</div>
+      ${attachmentHtml}
+      <div class="dm-inbox-id">Discord ID: ${escapeHtml(message.author_id || "-")}</div>
+    </article>`;
+  }).join("");
+}
+
+function parseDmAttachments(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed.filter((attachment) => attachment?.url) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function loadDmInbox() {
+  if (appAccess !== "admin" || !elements.dmInboxList) return;
+  if (elements.dmInboxMessage) {
+    elements.dmInboxMessage.hidden = false;
+    elements.dmInboxMessage.textContent = "受信箱を読み込んでいます。";
+  }
+  try {
+    const response = await sgateFetch("/api/admin/dm/inbox?limit=50");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || data.error || "DM受信箱を取得できませんでした。");
+    renderDmInbox(data.messages ?? []);
+    if (elements.dmInboxMessage) {
+      elements.dmInboxMessage.hidden = true;
+      elements.dmInboxMessage.textContent = "";
+    }
+  } catch (error) {
+    if (elements.dmInboxMessage) {
+      elements.dmInboxMessage.hidden = false;
+      elements.dmInboxMessage.textContent = `DM受信箱エラー: ${error.message}`;
+    }
+  }
+}
+
 async function sendDmInBatches({ selectedMode, selectedMembers, directDiscordUserId, meeting, message }) {
   let offset = 0;
   const totals = {
@@ -1577,6 +1639,7 @@ function wireEvents() {
 
   elements.previewDmButton?.addEventListener("click", previewAbsenceDmTargets);
   elements.sendDmButton?.addEventListener("click", sendAbsenceDm);
+  elements.refreshDmInboxButton?.addEventListener("click", loadDmInbox);
   elements.logoutButton?.addEventListener("click", logout);
   elements.directAuthForm?.addEventListener("submit", startDirectAuth);
   elements.directCodeForm?.addEventListener("submit", confirmDirectAuth);

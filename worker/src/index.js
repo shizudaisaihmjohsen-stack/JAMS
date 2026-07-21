@@ -1,6 +1,7 @@
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const DISCORD_GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
-const DISCORD_GATEWAY_INTENTS = (1 << 0) | (1 << 1);
+const DISCORD_GATEWAY_INTENTS = (1 << 0) | (1 << 1) | (1 << 12);
+const DISCORD_GATEWAY_INTENTS_VERSION = "20260721-direct-messages";
 const GATEWAY_KEEPALIVE_MS = 5 * 60 * 1000;
 const SESSION_COOKIE = "sgate_session";
 const STATE_COOKIE = "sgate_state";
@@ -144,6 +145,10 @@ async function route(request, env, ctx) {
 
   if (request.method === "POST" && url.pathname === "/api/admin/members/dm") {
     return sendSelectedDirectMessages(request, env);
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/admin/dm/inbox") {
+    return getDmInbox(request, env);
   }
 
   if (request.method === "GET" && url.pathname === "/admin/direct-dm") {
@@ -1370,6 +1375,29 @@ async function sendSelectedDirectMessages(request, env) {
   }, 200, request, env);
 }
 
+async function getDmInbox(request, env) {
+  await requireAdminSession(request, env);
+  const url = new URL(request.url);
+  const requestedLimit = Math.floor(Number(url.searchParams.get("limit") ?? 50));
+  const limit = Math.min(100, Math.max(1, Number.isFinite(requestedLimit) ? requestedLimit : 50));
+  const result = await env.DB.prepare(`
+    SELECT
+      message_id,
+      channel_id,
+      author_id,
+      author_username,
+      member_no,
+      member_name,
+      content,
+      attachments_json,
+      received_at
+    FROM discord_dm_inbox
+    ORDER BY received_at DESC
+    LIMIT ?
+  `).bind(limit).all();
+  return json({ ok: true, messages: result.results ?? [] }, 200, request, env);
+}
+
 function getDmBatchWindow(body) {
   const offset = Math.max(0, Math.floor(Number(body.offset ?? 0)));
   const requestedLimit = Math.floor(Number(body.limit ?? DISCORD_DM_BATCH_SIZE));
@@ -1409,6 +1437,12 @@ function normalizeEmail(value) {
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function cleanDiscordUsername(user) {
+  const username = clean(user?.username);
+  const globalName = clean(user?.global_name);
+  return globalName && globalName !== username ? `${globalName} / ${username}` : username;
 }
 
 function isValidEmail(email) {
@@ -2148,6 +2182,16 @@ export class DiscordGateway {
 
   async ensureConnected() {
     await this.scheduleKeepalive();
+    const storedIntentsVersion = await this.ctx.storage.get("gatewayIntentsVersion");
+    if (storedIntentsVersion !== DISCORD_GATEWAY_INTENTS_VERSION) {
+      this.clearTimers();
+      if (this.socket && this.socket.readyState < WebSocket.CLOSING) {
+        this.socket.close(4000, "S-GATE gateway intents updated");
+      }
+      this.socket = null;
+      await this.ctx.storage.delete(["sessionId", "resumeGatewayUrl", "sequence"]);
+      await this.ctx.storage.put("gatewayIntentsVersion", DISCORD_GATEWAY_INTENTS_VERSION);
+    }
     if (this.socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(this.socket.readyState)) {
       return this.getStatus();
     }
@@ -2166,6 +2210,7 @@ export class DiscordGateway {
       this.socket.close(4000, "S-GATE reconnect requested");
     }
     this.socket = null;
+    await this.ctx.storage.delete(["sessionId", "resumeGatewayUrl", "sequence"]);
     await this.setGatewayStatus("reconnecting");
     return this.ensureConnected();
   }
@@ -2311,6 +2356,10 @@ export class DiscordGateway {
       console.log(JSON.stringify({ message: "S-GATE Discord Gateway connected", resumed: true }));
       return;
     }
+    if (eventName === "MESSAGE_CREATE") {
+      await this.handleDirectMessage(data);
+      return;
+    }
     if (eventName !== "GUILD_MEMBER_REMOVE" || String(data?.guild_id) !== String(this.env.DISCORD_GUILD_ID)) {
       return;
     }
@@ -2327,6 +2376,58 @@ export class DiscordGateway {
       discordUserId,
       authenticationRevoked: Number(result.meta?.changes ?? 0) === 1,
     }));
+  }
+
+  async handleDirectMessage(data) {
+    if (Number(data?.type ?? -1) !== 0) return;
+    if (data?.guild_id) return;
+    if (Number(data?.channel_type ?? 1) !== 1 && data?.guild_id) return;
+    const messageId = String(data?.id ?? "");
+    const channelId = String(data?.channel_id ?? "");
+    const author = data?.author ?? {};
+    const authorId = String(author.id ?? "");
+    const content = String(data?.content ?? "").trim();
+    if (!/^\d{17,20}$/.test(messageId) || !/^\d{17,20}$/.test(channelId) || !/^\d{17,20}$/.test(authorId)) return;
+    if (author.bot || authorId === String(this.env.DISCORD_CLIENT_ID)) return;
+    const attachments = Array.isArray(data?.attachments)
+      ? data.attachments.map((attachment) => ({
+        filename: clean(attachment?.filename),
+        url: clean(attachment?.url),
+        contentType: clean(attachment?.content_type),
+      })).filter((attachment) => attachment.url)
+      : [];
+    if (!content && !attachments.length) return;
+    const linkedMember = await this.env.DB.prepare(`
+      SELECT member_no, name
+      FROM members
+      WHERE discord_user_id = ?
+    `).bind(authorId).first();
+    const username = cleanDiscordUsername(author);
+    await this.env.DB.prepare(`
+      INSERT OR IGNORE INTO discord_dm_inbox (
+        message_id,
+        channel_id,
+        author_id,
+        author_username,
+        member_no,
+        member_name,
+        content,
+        attachments_json,
+        received_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      messageId,
+      channelId,
+      authorId,
+      username,
+      linkedMember?.member_no ?? null,
+      linkedMember?.name ?? null,
+      content.slice(0, 1800),
+      attachments.length ? JSON.stringify(attachments).slice(0, 4000) : null,
+      data?.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString(),
+    ).run();
+    console.log(JSON.stringify({ message: "S-GATE DM received", authorId, linkedMember: Boolean(linkedMember) }));
   }
 
   startHeartbeat(socket, interval) {

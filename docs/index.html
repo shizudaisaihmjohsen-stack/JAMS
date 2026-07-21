@@ -32,6 +32,7 @@
           <button class="tab active" data-view="register"><span class="tab-en" aria-label="Entry"><i>E</i><i>N</i><i>T</i><i>R</i><i>Y</i></span>登録</button>
           <button class="tab" data-view="list"><span class="tab-en" aria-label="Member"><i>M</i><i>E</i><i>M</i><i>B</i><i>E</i><i>R</i></span>一覧</button>
           <button class="tab" data-view="search"><span class="tab-en" aria-label="Search"><i>S</i><i>E</i><i>A</i><i>R</i><i>C</i><i>H</i></span>検索</button>
+          <button class="tab" data-view="dm"><span class="tab-en" aria-label="DM"><i>D</i><i>M</i></span>DM</button>
           <button class="tab" data-view="settings"><span class="tab-en" aria-label="Data"><i>D</i><i>A</i><i>T</i><i>A</i></span>管理</button>
         </nav>
       </div>
@@ -233,37 +234,22 @@
         </div>
       </section>
 
-      <section id="view-settings" class="view hidden">
+      <section id="view-dm" class="view hidden">
         <div class="card">
-          <p class="section-en">Data</p>
-          <h2>管理</h2>
-          <div class="screen-control-panel management-panel">
-            <div class="management-session-bar">
+          <p class="section-en">Discord DM</p>
+          <h2>DM</h2>
+          <div class="screen-control-panel management-dm-panel">
+            <div class="management-dm-head">
               <div>
-                <p class="management-eyebrow">ログイン中</p>
-                <p id="adminStatusText">管理者状態を確認していません。</p>
+                <p class="panel-kicker">Inbox</p>
+                <h3>しぃは宛DM受信箱</h3>
               </div>
-              <input id="sGateInviteLink" type="hidden" value="https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/auth">
-              <input id="managementPageLink" type="hidden" value="https://shizudaisaihmjohsen-stack.github.io/JAMS/">
-              <div class="buttons management-session-actions">
-                <button class="secondary" type="button" id="copySgateLinkButton">認証URLをコピー</button>
-                <button class="secondary" type="button" id="copyManagementLinkButton">管理画面URLをコピー</button>
-                <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
+              <div class="buttons">
+                <button class="secondary" type="button" id="refreshDmInboxButton">受信箱を更新</button>
               </div>
             </div>
-            <div id="dataMessage"></div>
-          </div>
-
-          <div class="derived management-stats">
-            <div class="management-stat-grid">
-              <div class="management-stat"><span>総部員</span><strong id="totalCount">0</strong></div>
-              <div class="management-stat"><span>委員長</span><strong id="chairCount">0</strong></div>
-              <div class="management-stat"><span>RC</span><strong id="rcCount">0</strong></div>
-              <div class="management-stat"><span>SV</span><strong id="svCount">0</strong></div>
-              <div class="management-stat"><span>JC</span><strong id="jcCount">0</strong></div>
-              <div class="management-stat"><span>認証済み</span><strong id="verifiedCount">0</strong></div>
-              <div class="management-stat"><span>未認証</span><strong id="unverifiedCount">0</strong></div>
-            </div>
+            <div id="dmInboxMessage" class="hint" hidden></div>
+            <div id="dmInboxList" class="dm-inbox-list"></div>
           </div>
 
           <div class="screen-control-panel management-dm-panel">
@@ -273,7 +259,7 @@
             </div>
             <div class="management-dm-head">
               <div>
-                <p class="panel-kicker">Discord DM</p>
+                <p class="panel-kicker">Send</p>
                 <h3 id="dmPanelTitle">JC全体会未参加者への一括連絡</h3>
               </div>
               <div id="dmMeetingField" class="control-field">
@@ -311,6 +297,41 @@ JC全体会の参加状況について確認したいことがあります。
               <button class="danger" type="button" id="sendDmButton" disabled>JC未参加者へDM送信</button>
             </div>
             <div id="dmPreview" class="hint" hidden></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view hidden">
+        <div class="card">
+          <p class="section-en">Data</p>
+          <h2>管理</h2>
+          <div class="screen-control-panel management-panel">
+            <div class="management-session-bar">
+              <div>
+                <p class="management-eyebrow">ログイン中</p>
+                <p id="adminStatusText">管理者状態を確認していません。</p>
+              </div>
+              <input id="sGateInviteLink" type="hidden" value="https://jams-s-gate.shizudaisai-hm.workers.dev/sgate/auth">
+              <input id="managementPageLink" type="hidden" value="https://shizudaisaihmjohsen-stack.github.io/JAMS/">
+              <div class="buttons management-session-actions">
+                <button class="secondary" type="button" id="copySgateLinkButton">認証URLをコピー</button>
+                <button class="secondary" type="button" id="copyManagementLinkButton">管理画面URLをコピー</button>
+                <button class="secondary" type="button" id="logoutButton" hidden>ログアウト</button>
+              </div>
+            </div>
+            <div id="dataMessage"></div>
+          </div>
+
+          <div class="derived management-stats">
+            <div class="management-stat-grid">
+              <div class="management-stat"><span>総部員</span><strong id="totalCount">0</strong></div>
+              <div class="management-stat"><span>委員長</span><strong id="chairCount">0</strong></div>
+              <div class="management-stat"><span>RC</span><strong id="rcCount">0</strong></div>
+              <div class="management-stat"><span>SV</span><strong id="svCount">0</strong></div>
+              <div class="management-stat"><span>JC</span><strong id="jcCount">0</strong></div>
+              <div class="management-stat"><span>認証済み</span><strong id="verifiedCount">0</strong></div>
+              <div class="management-stat"><span>未認証</span><strong id="unverifiedCount">0</strong></div>
+            </div>
           </div>
 
           <div class="table-wrap management-member-table-wrap">
