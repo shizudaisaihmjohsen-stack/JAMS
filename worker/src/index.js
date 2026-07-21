@@ -1979,12 +1979,7 @@ function buildSelectedDmMessage(message, recipientName = "") {
   const heading = clean(recipientName) ? [`${clean(recipientName)} さん`, ""] : [];
   return [
     ...heading,
-    "浜松静大祭実行委員会 情報宣伝部です。",
-    "このメッセージは、システムから自動で送信しています。",
-    "こちらは送信用アカウントのため、ご連絡は部長DMまでお願いします。",
-    "ーーーーーー",
-    "",
-    message,
+    clean(message),
   ].join("\n");
 }
 
