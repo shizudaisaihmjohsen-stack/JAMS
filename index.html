@@ -241,7 +241,13 @@
               <p class="section-en">Discord DM</p>
               <h2>DM</h2>
             </div>
-            <button class="secondary" type="button" id="refreshDmInboxButton">受信箱を更新</button>
+            <div class="dm-title-actions">
+              <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
+                <label><input type="radio" name="dmTargetMode" value="selected" checked hidden>個別DM</label>
+                <label><input type="radio" name="dmTargetMode" value="absence" hidden>JC未参加者一斉</label>
+              </div>
+              <button class="secondary" type="button" id="refreshDmInboxButton">受信箱を更新</button>
+            </div>
           </div>
           <div id="dmInboxMessage" class="hint" hidden></div>
 
@@ -259,10 +265,6 @@
               <div id="dmInboxList" class="dm-inbox-list"></div>
 
               <div id="dmComposer" class="dm-composer">
-                <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
-                  <label><input type="radio" name="dmTargetMode" value="absence" checked hidden>JC欠席者</label>
-                  <label><input type="radio" name="dmTargetMode" value="selected" hidden>個別選択</label>
-                </div>
                 <div class="management-dm-head">
                   <div>
                     <p class="panel-kicker">Send</p>
@@ -296,9 +298,7 @@
                   <div id="dmMemberOptions" class="dm-member-options"></div>
                 </div>
                 <label for="dmMessage">送信メッセージ</label>
-                <textarea id="dmMessage" rows="5">情報宣伝部です。
-JC全体会の参加状況について確認したいことがあります。
-このDMを確認したら、部長または担当者まで返信してください。</textarea>
+                <textarea id="dmMessage" rows="3" placeholder="メッセージを送信"></textarea>
                 <div class="buttons management-dm-actions">
                   <button class="secondary" type="button" id="previewDmButton">対象確認</button>
                   <button class="danger" type="button" id="sendDmButton" disabled>JC未参加者へDM送信</button>

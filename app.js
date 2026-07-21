@@ -1340,8 +1340,20 @@ function updateDmTargetMode() {
   if ($("dmMeetingField")) $("dmMeetingField").hidden = selectedMode;
   if ($("dmPanelTitle")) $("dmPanelTitle").textContent = selectedMode ? "選択した部員への個別連絡" : "JC全体会未参加者への一括連絡";
   if (elements.sendDmButton) elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "JC未参加者へDM送信";
+  elements.dmComposer?.classList.toggle("is-absence", !selectedMode);
+  elements.dmComposer?.classList.remove("is-reply");
+  if (elements.dmReplyTarget) elements.dmReplyTarget.textContent = "";
   if ($("dmPreview")) $("dmPreview").hidden = true;
   renderDmMemberPicker();
+}
+
+function handleDmTargetModeChange() {
+  const selectedMode = getDmTargetMode() === "selected";
+  if (selectedMode && selectedDmConversationKey) {
+    setDmTargetFromConversation(selectedDmConversationKey, { preserveMessage: true });
+    return;
+  }
+  updateDmTargetMode();
 }
 
 function getDmTargetPreview() {
@@ -1887,7 +1899,7 @@ function wireEvents() {
   elements.copyManagementLinkButton?.addEventListener("click", copyManagementPageLink);
   elements.appLoginLink?.addEventListener("click", beginDiscordLogin);
   $("dmMeetingSelect")?.addEventListener("change", previewAbsenceDmTargets);
-  document.querySelectorAll('input[name="dmTargetMode"]').forEach((input) => input.addEventListener("change", updateDmTargetMode));
+  document.querySelectorAll('input[name="dmTargetMode"]').forEach((input) => input.addEventListener("change", handleDmTargetModeChange));
   elements.dmMemberSearch?.addEventListener("input", renderDmMemberPicker);
   elements.dmMemberOptions?.addEventListener("change", (event) => {
     const checkbox = event.target.closest('input[type="checkbox"]');

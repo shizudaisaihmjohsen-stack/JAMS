@@ -6265,12 +6265,13 @@
     }
 
     #view-dm .dm-titlebar {
-      min-height: 48px;
-      padding: 0 18px;
+      min-height: 56px;
+      padding: 0 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 18px;
+      overflow: visible;
       border-bottom: 1px solid #d6d9de;
       background: #fff;
     }
@@ -6301,6 +6302,45 @@
       font-size: 12px;
     }
 
+    #view-dm .dm-title-actions {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    #view-dm .dm-title-actions .dm-mode-switch {
+      display: inline-flex;
+      width: auto;
+      min-width: 0;
+      padding: 3px;
+      gap: 3px;
+      border: 1px solid #d6d9de;
+      border-radius: 4px;
+      background: #f2f3f5;
+    }
+
+    #view-dm .dm-title-actions .dm-mode-switch label {
+      min-height: 30px !important;
+      padding: 5px 11px !important;
+      border: 0 !important;
+      border-radius: 3px !important;
+      background: transparent !important;
+      color: #4e5d6c !important;
+      font-size: 12px !important;
+      line-height: 1.25 !important;
+      letter-spacing: .02em !important;
+      box-shadow: none !important;
+      white-space: nowrap;
+    }
+
+    #view-dm .dm-title-actions .dm-mode-switch label:has(input:checked) {
+      background: #fff !important;
+      color: #2e3338 !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .08) !important;
+    }
+
     #view-dm #dmInboxMessage {
       margin: 14px 22px 0;
     }
@@ -6308,7 +6348,7 @@
     #view-dm .dm-console {
       display: grid;
       grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 340px);
-      height: calc(100% - 48px);
+      height: calc(100% - 56px);
       min-height: 0;
       background: #fff;
     }
@@ -6555,7 +6595,7 @@
 
     #view-dm .dm-composer {
       margin: 0;
-      padding: 16px 18px 18px;
+      padding: 14px 18px 18px;
       display: grid;
       gap: 12px;
       max-height: 40dvh;
@@ -6571,23 +6611,22 @@
     }
 
     #view-dm .dm-composer.is-reply {
-      gap: 8px;
-      padding-top: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 10px;
+      padding: 14px 18px;
+      max-height: none;
+      overflow: visible;
+      background: #fff;
     }
 
     #view-dm .dm-composer.is-reply .management-dm-head {
-      grid-template-columns: 1fr;
-      gap: 4px;
-    }
-
-    #view-dm .dm-composer.is-reply .panel-kicker {
       display: none;
     }
 
-    #view-dm .dm-composer.is-reply h3 {
-      margin: 0;
-      font-size: 15px;
-      line-height: 1.35;
+    #view-dm .dm-composer.is-reply > label,
+    #view-dm .dm-composer.is-reply #previewDmButton {
+      display: none !important;
     }
 
     #view-dm .dm-reply-target {
@@ -6615,8 +6654,49 @@
     }
 
     #view-dm .dm-composer.is-reply textarea {
-      min-height: 82px;
+      grid-column: 1;
+      min-height: 46px;
       max-height: 150px;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 8px;
+      background: #f2f3f5;
+      line-height: 1.55;
+      resize: vertical;
+      box-shadow: none;
+    }
+
+    #view-dm .dm-composer.is-reply textarea:focus {
+      outline: 2px solid rgba(88, 101, 242, .24);
+      background: #f2f3f5;
+    }
+
+    #view-dm .dm-composer.is-reply .management-dm-actions {
+      grid-column: 2;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: flex !important;
+      align-items: flex-end;
+      justify-content: flex-end !important;
+    }
+
+    #view-dm .dm-composer.is-reply #sendDmButton {
+      width: auto;
+      min-width: 112px;
+      min-height: 46px;
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #5865f2;
+      color: #fff;
+    }
+
+    #view-dm .dm-composer.is-reply #dmPreview {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1.45;
     }
 
     #view-dm .dm-composer > label {
@@ -7206,8 +7286,22 @@
 
       #view-dm .dm-console {
         grid-template-columns: 1fr;
-        height: calc(100% - 48px);
+        height: calc(100% - 56px);
         min-height: 0;
+      }
+
+      #view-dm .dm-titlebar {
+        padding: 0 12px;
+        gap: 10px;
+      }
+
+      #view-dm .dm-title-actions {
+        gap: 6px;
+      }
+
+      #view-dm .dm-title-actions .dm-mode-switch label {
+        padding: 5px 8px !important;
+        font-size: 11px !important;
       }
 
       #view-dm .dm-sidebar {
@@ -7235,6 +7329,16 @@
       #view-dm .dm-composer {
         max-height: 38dvh;
         padding: 12px;
+      }
+
+      #view-dm .dm-composer.is-reply {
+        grid-template-columns: minmax(0, 1fr) auto;
+        max-height: none;
+      }
+
+      #view-dm .dm-composer.is-reply #sendDmButton {
+        min-width: 72px;
+        padding: 10px 12px;
       }
 
       #view-dm .dm-thread-header,
