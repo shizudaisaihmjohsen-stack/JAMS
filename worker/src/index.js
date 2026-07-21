@@ -1975,12 +1975,8 @@ async function hmac(value, secret) {
   return base64UrlEncode(new Uint8Array(signature));
 }
 
-function buildSelectedDmMessage(message, recipientName = "") {
-  const heading = clean(recipientName) ? [`${clean(recipientName)} さん`, ""] : [];
-  return [
-    ...heading,
-    clean(message),
-  ].join("\n");
+function buildSelectedDmMessage(message) {
+  return clean(message);
 }
 
 export { getGuildJoinFailureStatus, provisionVerifiedDiscordMember };
