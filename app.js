@@ -360,6 +360,8 @@ const elements = {
   dmConversationList: $("dmConversationList"),
   dmThreadHeader: $("dmThreadHeader"),
   dmConversationProfile: $("dmConversationProfile"),
+  dmComposer: $("dmComposer"),
+  dmReplyTarget: $("dmReplyTarget"),
   refreshDmInboxButton: $("refreshDmInboxButton"),
   selectVisibleDmMembersButton: $("selectVisibleDmMembersButton"),
   clearDmMembersButton: $("clearDmMembersButton"),
@@ -1398,8 +1400,30 @@ function getDmConversationAvatar(message) {
   return username ? username.slice(0, 2).toUpperCase() : "DM";
 }
 
+function getDmConversationMemberSortValue(conversation) {
+  const member = members.find((entry) => entry.memberNo === conversation.memberNo || entry.discordUserId === conversation.authorId);
+  return member ? members.indexOf(member) : Number.MAX_SAFE_INTEGER;
+}
+
 function groupDmConversations(messages = []) {
   const conversations = new Map();
+  for (const member of members) {
+    const discordUserId = normalize(member.discordUserId);
+    const key = discordUserId || `member:${member.memberNo || member.studentId || member.name}`;
+    conversations.set(key, {
+      key,
+      authorId: discordUserId,
+      title: [member.memberNo, member.name].filter(Boolean).join(" ") || member.sGateUserId || "Discordユーザー",
+      subtitle: member.sGateUserId || discordUserId || "Discord未連携",
+      avatar: normalize(member.memberNo).slice(0, 2).toUpperCase() || "DM",
+      memberNo: member.memberNo || "",
+      memberName: member.name || "",
+      authorUsername: member.sGateUserId || "",
+      latestAt: "",
+      messages: [],
+      hasDiscordUser: Boolean(discordUserId),
+    });
+  }
   for (const message of messages) {
     const key = getDmConversationKey(message);
     if (!conversations.has(key)) {
@@ -1414,14 +1438,22 @@ function groupDmConversations(messages = []) {
         authorUsername: message.author_username || "",
         latestAt: message.received_at || "",
         messages: [],
+        hasDiscordUser: Boolean(message.author_id),
       });
     }
     const conversation = conversations.get(key);
+    conversation.authorId = conversation.authorId || message.author_id || "";
+    conversation.memberNo = conversation.memberNo || message.member_no || "";
+    conversation.memberName = conversation.memberName || message.member_name || "";
+    conversation.authorUsername = message.author_username || conversation.authorUsername;
+    conversation.hasDiscordUser = Boolean(conversation.authorId);
     conversation.messages.push(message);
     if (!conversation.latestAt || new Date(message.received_at) > new Date(conversation.latestAt)) {
       conversation.latestAt = message.received_at || conversation.latestAt;
-      conversation.title = getDmConversationTitle(message);
-      conversation.subtitle = getDmConversationSubtitle(message);
+      conversation.title = conversation.memberNo || conversation.memberName
+        ? [conversation.memberNo, conversation.memberName].filter(Boolean).join(" ")
+        : getDmConversationTitle(message);
+      conversation.subtitle = message.author_username || conversation.subtitle || getDmConversationSubtitle(message);
     }
   }
   return [...conversations.values()]
@@ -1429,7 +1461,11 @@ function groupDmConversations(messages = []) {
       ...conversation,
       messages: [...conversation.messages].sort((a, b) => new Date(a.received_at || 0) - new Date(b.received_at || 0)),
     }))
-    .sort((a, b) => new Date(b.latestAt || 0) - new Date(a.latestAt || 0));
+    .sort((a, b) => {
+      const recentDifference = new Date(b.latestAt || 0) - new Date(a.latestAt || 0);
+      if (recentDifference) return recentDifference;
+      return getDmConversationMemberSortValue(a) - getDmConversationMemberSortValue(b);
+    });
 }
 
 function renderDmConversationList(conversations) {
@@ -1441,7 +1477,9 @@ function renderDmConversationList(conversations) {
   elements.dmConversationList.innerHTML = conversations.map((conversation) => {
     const latestMessage = conversation.messages[conversation.messages.length - 1] || {};
     const latestAt = latestMessage.received_at ? new Date(latestMessage.received_at).toLocaleDateString("ja-JP") : "";
-    const preview = normalize(latestMessage.content) || "添付ファイル";
+    const preview = conversation.messages.length
+      ? normalize(latestMessage.content) || "添付ファイル"
+      : "まだ受信履歴はありません";
     return `<button class="dm-conversation-item${conversation.key === selectedDmConversationKey ? " is-active" : ""}" type="button" data-dm-key="${escapeHtml(conversation.key)}">
       <span class="dm-avatar">${escapeHtml(conversation.avatar)}</span>
       <span class="dm-conversation-main">
@@ -1474,7 +1512,7 @@ function renderDmThreadHeader(conversation) {
         <span>${escapeHtml(conversation.subtitle)}</span>
       </div>
     </div>
-    <button class="secondary dm-thread-target-button" type="button" data-dm-target="${escapeHtml(conversation.key)}">この相手に送信</button>`;
+    <span class="dm-thread-status">${conversation.messages.length ? `${conversation.messages.length}件の受信DM` : "受信履歴なし"}</span>`;
 }
 
 function renderDmProfile(conversation) {
@@ -1516,9 +1554,14 @@ function renderDmInbox(messages = dmInboxMessages) {
   renderDmConversationList(conversations);
   renderDmThreadHeader(selectedConversation);
   renderDmProfile(selectedConversation);
+  setDmTargetFromConversation(selectedConversation, { preserveMessage: true });
   if (!elements.dmInboxList) return;
   if (!selectedConversation) {
     elements.dmInboxList.innerHTML = '<div class="empty">受信したDMはまだありません。</div>';
+    return;
+  }
+  if (!selectedConversation.messages.length) {
+    elements.dmInboxList.innerHTML = `<div class="empty">${escapeHtml(selectedConversation.title)}さんとの受信履歴はまだありません。下の送信欄から個別にDMを送れます。</div>`;
     return;
   }
   elements.dmInboxList.innerHTML = selectedConversation.messages.map((message) => {
@@ -1551,8 +1594,10 @@ function selectDmConversation(key) {
   renderDmInbox(dmInboxMessages);
 }
 
-function setDmTargetFromConversation(key) {
-  const conversation = groupDmConversations(dmInboxMessages).find((entry) => entry.key === key);
+function setDmTargetFromConversation(conversationOrKey, options = {}) {
+  const conversation = typeof conversationOrKey === "string"
+    ? groupDmConversations(dmInboxMessages).find((entry) => entry.key === conversationOrKey)
+    : conversationOrKey;
   if (!conversation) return;
   const selectedModeInput = document.querySelector('input[name="dmTargetMode"][value="selected"]');
   if (selectedModeInput) selectedModeInput.checked = true;
@@ -1560,11 +1605,22 @@ function setDmTargetFromConversation(key) {
   const member = conversation.memberNo
     ? members.find((entry) => entry.memberNo === conversation.memberNo)
     : members.find((entry) => entry.discordUserId === conversation.authorId);
-  if (member?.memberNo) selectedDmMemberNos.add(member.memberNo);
+  if (member?.memberNo && member.discordUserId) selectedDmMemberNos.add(member.memberNo);
   const directDiscordInput = $("dmDirectDiscordUserId");
   if (directDiscordInput) directDiscordInput.value = member?.memberNo ? "" : conversation.authorId;
   updateDmTargetMode();
-  $("dmMessage")?.focus();
+  elements.dmComposer?.classList.add("is-reply");
+  if ($("dmPanelTitle")) $("dmPanelTitle").textContent = "個別返信";
+  if (elements.dmReplyTarget) {
+    elements.dmReplyTarget.textContent = conversation.hasDiscordUser
+      ? `返信先: ${conversation.title}`
+      : "この相手はDiscord IDが未取得のため送信できません。";
+  }
+  if (elements.sendDmButton) {
+    elements.sendDmButton.textContent = conversation.hasDiscordUser ? "この相手へDM送信" : "Discord未連携";
+    elements.sendDmButton.disabled = !conversation.hasDiscordUser || appAccess !== "admin";
+  }
+  if (!options.preserveMessage) $("dmMessage")?.focus();
 }
 
 function parseDmAttachments(value) {
@@ -1691,6 +1747,8 @@ async function sendAbsenceDm() {
     elements.sendDmButton.disabled = false;
     elements.sendDmButton.textContent = selectedMode ? "選択した部員へDM送信" : "JC未参加者へDM送信";
     await refreshAdminStatus();
+    const selectedConversation = groupDmConversations(dmInboxMessages).find((conversation) => conversation.key === selectedDmConversationKey);
+    if (selectedConversation) setDmTargetFromConversation(selectedConversation, { preserveMessage: true });
   }
 }
 

@@ -6432,6 +6432,18 @@
       white-space: nowrap;
     }
 
+    #view-dm .dm-thread-status {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f7fbfe;
+      color: var(--blue-deep);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
     #view-dm .dm-inbox-list {
       align-content: start;
       max-height: none;
@@ -6478,6 +6490,19 @@
       gap: 12px;
       border-top: 1px solid var(--line);
       background: #f7fbfe;
+    }
+
+    #view-dm .dm-composer.is-reply .dm-mode-switch,
+    #view-dm .dm-composer.is-reply .dm-member-picker,
+    #view-dm .dm-composer.is-reply #dmMeetingField {
+      display: none !important;
+    }
+
+    #view-dm .dm-reply-target {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
     }
 
     #view-dm .dm-composer .management-dm-head {
@@ -6570,6 +6595,14 @@
       font-size: 13px;
       line-height: 1.45;
       word-break: break-all;
+    }
+
+    #view-dm .dm-conversation-item:not(.is-active) .dm-conversation-preview {
+      color: #7b8796;
+    }
+
+    #view-dm .dm-conversation-item .dm-conversation-preview:empty::after {
+      content: "まだ受信履歴はありません";
     }
 
     .sgate-verify-page {

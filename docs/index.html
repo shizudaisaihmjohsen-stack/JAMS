@@ -258,7 +258,7 @@
               <header id="dmThreadHeader" class="dm-thread-header"></header>
               <div id="dmInboxList" class="dm-inbox-list"></div>
 
-              <div class="dm-composer">
+              <div id="dmComposer" class="dm-composer">
                 <div class="dm-mode-switch" role="radiogroup" aria-label="DM送信対象">
                   <label><input type="radio" name="dmTargetMode" value="absence" checked hidden>JC欠席者</label>
                   <label><input type="radio" name="dmTargetMode" value="selected" hidden>個別選択</label>
@@ -267,6 +267,7 @@
                   <div>
                     <p class="panel-kicker">Send</p>
                     <h3 id="dmPanelTitle">JC全体会未参加者への一括連絡</h3>
+                    <p id="dmReplyTarget" class="dm-reply-target"></p>
                   </div>
                   <div id="dmMeetingField" class="control-field">
                     <label for="dmMeetingSelect">対象のJC全体会</label>
