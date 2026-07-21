@@ -6247,11 +6247,26 @@
       word-break: break-all;
     }
 
+    main.wrap:has(#view-dm:not(.hidden)) {
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    body:has(#view-dm:not(.hidden)) {
+      overflow: hidden;
+    }
+
+    #view-dm {
+      height: calc(100dvh - 152px);
+      min-height: 0;
+    }
+
     #view-dm .dm-card {
       width: 100vw;
-      height: calc(100dvh - 96px);
-      min-height: 560px;
-      margin: -34px 0 -74px calc(50% - 50vw);
+      height: 100%;
+      min-height: 0;
+      margin: 0;
       padding: 0 !important;
       overflow: hidden;
       border: 0 !important;
@@ -6268,7 +6283,7 @@
       height: 56px;
       flex: 0 0 56px;
       min-height: 56px;
-      padding: 0 24px;
+      padding: 0 26px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -6288,6 +6303,8 @@
     }
 
     #view-dm .dm-titlebar h2 {
+      display: flex !important;
+      align-items: center !important;
       min-height: 0 !important;
       margin: 0 !important;
       font-size: 16px !important;
@@ -6308,6 +6325,7 @@
 
     #view-dm .dm-title-actions {
       min-width: 0;
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: flex-end;
@@ -7285,6 +7303,10 @@
     }
 
     @media(max-width: 820px) {
+      #view-dm {
+        height: calc(100dvh - 132px);
+      }
+
       #view-dm .dm-titlebar {
         align-items: center;
         flex-direction: row;
