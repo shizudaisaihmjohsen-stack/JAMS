@@ -14,6 +14,8 @@ const DISCORD_ROLE_CONFIRM_RETRY_DELAYS_MS = [500, 1000, 2000];
 const DISCORD_DM_SEND_INTERVAL_MS = 750;
 const DISCORD_RATE_LIMIT_MAX_RETRIES = 3;
 const DISCORD_DM_BATCH_SIZE = 6;
+const PROGRESS_FORUM_CHANNEL_ID = "1519964908316524554";
+const PROGRESS_FORUM_POST_HOUR_JST = 12;
 const TEAM_ROLE_NAMES = ["ポスター", "パンフレット", "Webサイト", "学内宣", "学外宣", "マスコット", "SNS"];
 
 const roleNameToEnvKey = {
@@ -59,8 +61,9 @@ export default {
       }, 500, request, env);
     }
   },
-  async scheduled(_controller, env, ctx) {
+  async scheduled(controller, env, ctx) {
     ctx.waitUntil(getDiscordGateway(env).fetch("https://discord-gateway.internal/ensure", { method: "POST" }));
+    ctx.waitUntil(createWeeklyProgressForumPost(controller, env));
   },
 };
 
@@ -1773,6 +1776,127 @@ async function sendDirectMessage(userId, content, env) {
       allowed_mentions: { parse: [] },
     }),
   }, [200]);
+}
+
+async function createWeeklyProgressForumPost(controller, env) {
+  if (!env.DB || !env.DISCORD_BOT_TOKEN) return;
+  const scheduledAt = new Date(Number(controller?.scheduledTime) || Date.now());
+  const jst = getJstParts(scheduledAt);
+  if (jst.weekday !== 5 || jst.hour !== PROGRESS_FORUM_POST_HOUR_JST || jst.minute >= 15) return;
+
+  const post = buildProgressForumPost(scheduledAt, env);
+  const lock = await env.DB.prepare(`
+    INSERT OR IGNORE INTO scheduled_discord_posts (
+      post_key,
+      channel_id,
+      title,
+      content,
+      scheduled_for
+    )
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(
+    post.key,
+    PROGRESS_FORUM_CHANNEL_ID,
+    post.title,
+    post.content,
+    post.scheduledFor,
+  ).run();
+
+  if (!Number(lock.meta?.changes ?? 0)) return;
+
+  try {
+    const thread = await discordFetch(`/channels/${PROGRESS_FORUM_CHANNEL_ID}/threads`, {
+      method: "POST",
+      headers: botHeaders(env, "JAMS weekly progress report"),
+      body: JSON.stringify({
+        name: post.title,
+        auto_archive_duration: 10080,
+        message: {
+          content: post.content,
+          allowed_mentions: post.allowedMentions,
+        },
+      }),
+    }, [201]);
+
+    await env.DB.prepare(`
+      UPDATE scheduled_discord_posts
+      SET thread_id = ?
+      WHERE post_key = ?
+    `).bind(String(thread?.id ?? ""), post.key).run();
+  } catch (error) {
+    await env.DB.prepare(`
+      DELETE FROM scheduled_discord_posts
+      WHERE post_key = ? AND thread_id IS NULL
+    `).bind(post.key).run();
+    throw error;
+  }
+}
+
+function buildProgressForumPost(date, env) {
+  const week = getProgressReportWeek(date);
+  const title = `${toFullWidthNumber(week.titleMonth)}月第${toFullWidthNumber(week.weekOfMonth)}週（${week.startLabel} ～ ${week.endLabel}）`;
+  const mention = env.DISCORD_ROLE_RC ? `<@&${env.DISCORD_ROLE_RC}>` : "@RC";
+  const content = [
+    mention,
+    `${week.startLabel} ～ ${week.endLabel}の進捗報告をお願いします！`,
+    `期限：${week.deadlineLabel} ${week.deadlineWeekday}. 終日`,
+  ].join("\n");
+  return {
+    key: `progress-report-${week.postDateKey}`,
+    title,
+    content,
+    scheduledFor: week.scheduledFor,
+    allowedMentions: env.DISCORD_ROLE_RC ? { roles: [String(env.DISCORD_ROLE_RC)] } : { parse: [] },
+  };
+}
+
+function getProgressReportWeek(date) {
+  const post = getJstParts(date);
+  const postDateUtc = Date.UTC(post.year, post.month - 1, post.day);
+  const daysSinceMonday = (post.weekday + 6) % 7;
+  const startDateUtc = postDateUtc - daysSinceMonday * 24 * 60 * 60 * 1000;
+  const endDateUtc = startDateUtc + 6 * 24 * 60 * 60 * 1000;
+  const deadlineDateUtc = startDateUtc + 7 * 24 * 60 * 60 * 1000;
+  const scheduledDateUtc = Date.UTC(post.year, post.month - 1, post.day, PROGRESS_FORUM_POST_HOUR_JST - 9, 0, 0);
+  return {
+    titleMonth: post.month,
+    weekOfMonth: Math.floor((post.day - 1) / 7) + 1,
+    startLabel: formatMonthDayUtc(startDateUtc),
+    endLabel: formatMonthDayUtc(endDateUtc),
+    deadlineLabel: formatMonthDayUtc(deadlineDateUtc),
+    deadlineWeekday: formatEnglishWeekdayUtc(deadlineDateUtc),
+    postDateKey: `${post.year}-${pad2(post.month)}-${pad2(post.day)}`,
+    scheduledFor: new Date(scheduledDateUtc).toISOString(),
+  };
+}
+
+function getJstParts(date) {
+  const shifted = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    weekday: shifted.getUTCDay(),
+  };
+}
+
+function formatMonthDayUtc(timestamp) {
+  const date = new Date(timestamp);
+  return `${pad2(date.getUTCMonth() + 1)}/${pad2(date.getUTCDate())}`;
+}
+
+function formatEnglishWeekdayUtc(timestamp) {
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(timestamp).getUTCDay()];
+}
+
+function toFullWidthNumber(value) {
+  return String(value).replace(/[0-9]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) + 0xfee0));
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
 }
 
 async function storeOutgoingDirectMessageInInbox(env, message, member = {}) {
